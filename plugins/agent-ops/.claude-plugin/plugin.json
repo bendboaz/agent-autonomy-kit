@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "agent-ops",
+  "description": "Repo-agnostic autonomous GitHub agent-ops: dispatch/babysit/triage loops, an orchestrator, and a conversation-aware AI reviewer, acting under a non-admin GitHub App. Driven by a small per-repo .agent-ops/ config. Windows/PowerShell.",
+  "author": {
+    "name": "Boaz",
+    "url": "https://github.com/bendboaz"
+  },
+  "homepage": "https://github.com/bendboaz/agent-autonomy-kit",
+  "repository": "https://github.com/bendboaz/agent-autonomy-kit",
+  "license": "MIT",
+  "keywords": [
+    "github",
+    "automation",
+    "autonomous-agent",
+    "code-review",
+    "dispatch",
+    "triage",
+    "powershell",
+    "windows"
+  ],
+  "defaultEnabled": false
+}

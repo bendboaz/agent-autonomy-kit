@@ -1,0 +1,33 @@
+# --- Machine-specific config: NEVER commit (public repo) ---
+# Per-repo machine paths (worktree base, venv, gh path) live here, gitignored.
+**/config.local.json
+
+# --- Runtime state (per consuming repo) ---
+**/agent-state/
+**/*-lock-*.json
+*.backoff
+
+# --- Secrets (belt-and-suspenders; the .pem always lives OUTSIDE any repo) ---
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# --- Node ---
+node_modules/
+
+# --- Test / tooling output ---
+testResults.xml
+*.log
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db

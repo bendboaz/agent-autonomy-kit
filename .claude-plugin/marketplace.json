@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "boaz-agent-ops",
+  "owner": {
+    "name": "Boaz",
+    "url": "https://github.com/bendboaz"
+  },
+  "plugins": [
+    {
+      "name": "agent-ops",
+      "source": "./plugins/agent-ops",
+      "description": "Autonomous GitHub agent-ops for Claude Code: dispatch / babysit / triage loops, an interactive orchestrator, and a conversation-aware AI reviewer — all acting under a non-admin GitHub App so they physically cannot merge. Windows / PowerShell."
+    }
+  ]
+}
