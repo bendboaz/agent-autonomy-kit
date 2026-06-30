@@ -1,0 +1,27 @@
+{
+  "repoSlug": "bendboaz/agent-autonomy-kit",
+  "appId": "4070567",
+  "installationId": "140736715",
+  "appBotLogin": "dnd-agent[bot]",
+  "branchPrefix": "claude/agent/issue-",
+  "defaultCap": 1,
+  "agentOpsPath": ".agent-ops",
+  "stateDir": ".claude/agent-state",
+  "labels": {
+    "ready": "ready",
+    "inProgress": "in-progress",
+    "blocked": "blocked",
+    "needsAttention": "needs-attention",
+    "helpWanted": "help wanted",
+    "meta": "meta"
+  },
+  "roleHeaders": {
+    "implementing": "🛠️ **[Implementing Agent]**",
+    "reviewing": "🔎 **[Reviewing Agent]**",
+    "human": "👤 **[Human]**"
+  },
+  "verify": {
+    "pester": ["pwsh -NoProfile -Command \"Invoke-Pester -CI -Path plugins/agent-ops/tests\""],
+    "python": ["pip install -r plugins/agent-ops/requirements.txt pytest -q", "pytest plugins/agent-ops/tests"]
+  }
+}
