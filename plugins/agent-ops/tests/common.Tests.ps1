@@ -5,6 +5,8 @@
 # runner (ubuntu-latest with pwsh) as the `pester` job in ci.yml.
 
 BeforeAll {
+    # Point the config loader at a committed fixture repo so the load succeeds on CI.
+    $env:AGENT_OPS_REPO = (Resolve-Path "$PSScriptRoot/fixtures/dnd").Path
     . "$PSScriptRoot/../scripts/common.ps1"
     # $StateDir (.claude/agent-state) is gitignored and won't exist on CI runners.
     if (-not (Test-Path $StateDir)) { New-Item -ItemType Directory -Force -Path $StateDir | Out-Null }

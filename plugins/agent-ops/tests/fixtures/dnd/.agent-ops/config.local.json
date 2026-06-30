@@ -1,0 +1,5 @@
+{
+  "worktreeBase": "X:\\wt",
+  "venvScripts": "backend\\.venv\\Scripts",
+  "ghPath": "gh"
+}

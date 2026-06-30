@@ -1,0 +1,19 @@
+{
+  "appId": "0000000",
+  "installationId": "00000000",
+  "branchPrefix": "claude/agent/issue-",
+  "defaultCap": 1,
+  "labels": {
+    "ready": "ready",
+    "inProgress": "in-progress",
+    "blocked": "blocked",
+    "needsAttention": "needs-attention",
+    "helpWanted": "help wanted",
+    "meta": "meta"
+  },
+  "roleHeaders": {
+    "implementing": "x",
+    "reviewing": "y",
+    "human": "z"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "repoSlug": "owner/repo",
+  "appId": "0000000",
+  "installationId": "00000000",
+  "branchPrefix": "claude/agent/issue-",
+  "defaultCap": 1,
+  "agentOpsPath": ".agent-ops",
+  "stateDir": ".claude/agent-state",
+  "labels": {
+    "ready": "ready",
+    "inProgress": "in-progress",
+    "blocked": "blocked",
+    "needsAttention": "needs-attention",
+    "helpWanted": "help wanted",
+    "meta": "meta"
+  },
+  "roleHeaders": {
+    "implementing": "🛠️ **[Implementing Agent]**",
+    "reviewing": "🔎 **[Reviewing Agent]**",
+    "human": "👤 **[Human]**"
+  },
+  "verify": {
+    "frontend": ["npm ci", "npx tsc --noEmit", "npm run build", "npm test"],
+    "backend": ["pytest"]
+  }
+}

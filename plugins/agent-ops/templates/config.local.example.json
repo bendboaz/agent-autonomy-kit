@@ -1,0 +1,5 @@
+{
+  "worktreeBase": "D:\\path\\to\\worktrees",
+  "venvScripts": "backend\\.venv\\Scripts",
+  "ghPath": "C:\\Program Files\\GitHub CLI\\gh.exe"
+}
