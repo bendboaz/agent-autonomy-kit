@@ -11,7 +11,10 @@
 .PARAMETER WhatIf     Print what would be registered without changing anything.
 
 .EXAMPLE
-  pwsh install-tasks.ps1 -RepoRoot C:\path\to\your-repo
+  # From a PowerShell terminal (PS 5.1 or PS 7):
+  .\install-tasks.ps1 -RepoRoot C:\path\to\your-repo
+  # Or if invoking from cmd.exe or a non-PS shell:
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File install-tasks.ps1 -RepoRoot C:\path\to\your-repo
 #>
 param(
   [Parameter(Mandatory)][string]$RepoRoot,

@@ -40,11 +40,12 @@ Copy `templates/ai-review.caller.yml` to `<repo>/.github/workflows/ai-review.yml
 
 ### 4. Register the loops (run in a real terminal, not via Claude)
 ```powershell
-pwsh <plugin>/scripts/install-tasks.ps1 -RepoRoot <repo root> -WhatIf   # preview
-pwsh <plugin>/scripts/install-tasks.ps1 -RepoRoot <repo root>           # register
+# From a PowerShell terminal (PS 5.1 or PS 7 both work):
+.\<plugin>\scripts\install-tasks.ps1 -RepoRoot <repo root> -WhatIf   # preview
+.\<plugin>\scripts\install-tasks.ps1 -RepoRoot <repo root>           # register
 ```
 This creates `agentops-<repo>-{dispatch,babysit,triage}` scheduled tasks. Remove with
-`uninstall-tasks.ps1 -RepoRoot <repo root>`.
+`.\<plugin>\scripts\uninstall-tasks.ps1 -RepoRoot <repo root>`.
 
 ## Verify
 
@@ -55,7 +56,7 @@ This creates `agentops-<repo>-{dispatch,babysit,triage}` scheduled tasks. Remove
 3. **AI review:** open a test PR (or `workflow_dispatch` the ai-review workflow with a PR number) → a
    `[Reviewing Agent]` comment appears.
 4. **Loops:** let the scheduled tasks fire once, or run a wrapper manually:
-   `pwsh <plugin>/scripts/run-dispatch.ps1 -RepoRoot <repo root>`.
+   `powershell.exe -NoProfile -ExecutionPolicy Bypass -File <plugin>\scripts\run-dispatch.ps1 -RepoRoot <repo root>`.
 
 ## Day-2
 
