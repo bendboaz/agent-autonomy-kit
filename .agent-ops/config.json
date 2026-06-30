@@ -2,7 +2,7 @@
   "repoSlug": "bendboaz/agent-autonomy-kit",
   "appId": "4070567",
   "installationId": "140736715",
-  "appBotLogin": "dnd-agent[bot]",
+  "appBotLogin": "bendboaz-claude-code-agents[bot]",
   "branchPrefix": "claude/agent/issue-",
   "defaultCap": 1,
   "agentOpsPath": ".agent-ops",
