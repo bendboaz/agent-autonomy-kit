@@ -1,0 +1,113 @@
+name: AI Review (reusable)
+
+# Called by a consuming repo's thin .github/workflows/ai-review.yml. The consuming repo keeps the
+# `on: pull_request: paths:` trigger; this workflow does the diff -> Claude -> comment work, pulling
+# the generalized ai_review.py + base checklists from the (public) agent-autonomy-kit.
+on:
+  workflow_call:
+    inputs:
+      checklist_path:
+        description: "Repo-relative path to this repo's review checklist"
+        type: string
+        default: '.agent-ops/REVIEW-CHECKLIST.md'
+      agent_ops_path:
+        description: 'Repo path that triggers the extra agent-ops review checks'
+        type: string
+        default: '.agent-ops'
+      model:
+        description: 'Claude model id'
+        type: string
+        default: 'claude-sonnet-4-6'
+      kit_ref:
+        description: 'agent-autonomy-kit git ref to check out for the reviewer script'
+        type: string
+        default: 'main'
+      pr_number:
+        description: 'PR number (for a manual workflow_dispatch from the caller)'
+        type: string
+        default: ''
+    secrets:
+      ANTHROPIC_API_KEY:
+        required: true
+
+jobs:
+  ai-review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout caller repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout agent-ops kit
+        uses: actions/checkout@v4
+        with:
+          repository: bendboaz/agent-autonomy-kit
+          ref: ${{ inputs.kit_ref }}
+          path: _agentops_kit
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install anthropic
+
+      - name: Skip update-branch merge commits
+        id: skip
+        run: |
+          MSG=$(git log -1 --format="%s")
+          if echo "$MSG" | grep -qE "^Merge (branch 'main'|pull request)"; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve PR number
+        id: pr
+        if: steps.skip.outputs.skip != 'true'
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "number=${{ inputs.pr_number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Diff against base
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            BASE=$(gh pr view "${{ steps.pr.outputs.number }}" --json baseRefName --jq .baseRefName)
+            git fetch origin "$BASE"
+            git diff "origin/$BASE...HEAD" > pr.diff
+          else
+            git diff "origin/${{ github.base_ref }}...HEAD" > pr.diff
+          fi
+
+      - name: Fetch existing PR comment thread
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr view "${{ steps.pr.outputs.number }}" --json comments \
+            --jq '.comments[] | "----\n" + .body' > pr_comments.txt || true
+
+      - name: Generate AI review
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_REVIEW_MODEL: ${{ inputs.model }}
+          AI_REVIEW_BASE_CHECKLIST: _agentops_kit/plugins/agent-ops/review/base-checklist.md
+          AI_REVIEW_AGENT_OPS_CHECKLIST: _agentops_kit/plugins/agent-ops/review/agent-ops-checklist.md
+          AI_REVIEW_REPO_CHECKLIST: ${{ inputs.checklist_path }}
+          AI_REVIEW_AGENT_OPS_PATH: ${{ inputs.agent_ops_path }}
+        run: python _agentops_kit/plugins/agent-ops/scripts/ai_review.py pr.diff pr_comments.txt > review.md
+
+      - name: Post review comment
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment "${{ steps.pr.outputs.number }}" --body-file review.md
