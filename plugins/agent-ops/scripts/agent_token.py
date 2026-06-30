@@ -6,14 +6,14 @@ read from a file path given by env, never hard-coded, never logged. Only the
 short-lived installation token (ghs_...) is printed to stdout.
 
 Env (or pass as needed):
-  GH_APP_ID                e.g. 4070567
-  GH_APP_INSTALLATION_ID   e.g. 140736715
+  GH_APP_ID                e.g. 123456
+  GH_APP_INSTALLATION_ID   e.g. 7654321
   GH_APP_PRIVATE_KEY_PATH  path to the .pem (keep OUTSIDE the repo)
 
 Usage (PowerShell):
-  $env:GH_APP_ID="4070567"
-  $env:GH_APP_INSTALLATION_ID="140736715"
-  $env:GH_APP_PRIVATE_KEY_PATH="C:\Users\Boaz\.secrets\dnd-agent.pem"
+  $env:GH_APP_ID="123456"
+  $env:GH_APP_INSTALLATION_ID="7654321"
+  $env:GH_APP_PRIVATE_KEY_PATH="C:\path\to\app-private-key.pem"
   $env:GH_TOKEN = (python agent_token.py)      # now gh/git act as the App
   gh auth status   # or: git -c http.extraheader=... ; gh pr ...
 

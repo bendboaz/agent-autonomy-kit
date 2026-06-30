@@ -2,6 +2,7 @@
   "repoSlug": "bendboaz/dnd-session-assistant",
   "appId": "4070567",
   "installationId": "140736715",
+  "appBotLogin": "dnd-agent[bot]",
   "branchPrefix": "claude/agent/issue-",
   "defaultCap": 1,
   "agentOpsPath": ".agent-ops",

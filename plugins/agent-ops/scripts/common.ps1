@@ -1,7 +1,7 @@
-﻿# common.ps1 - shared agent-ops helper functions for the dnd-session-assistant loops.
+﻿# common.ps1 - shared agent-ops helper functions for the agent-ops loops (repo-agnostic).
 #
 # Usage (interactive session or wrapper script):
-#   . "infra\agent-ops\common.ps1"
+#   $env:AGENT_OPS_REPO = "<repo root>"; . "<agent-ops plugin>/scripts/common.ps1"
 #
 # All functions consume the constants defined in agent-config.ps1 (auto-dot-sourced below).
 # Functions that call gh/git accept optional fixture parameters (-Issues, -OpenPRs, etc.)
@@ -16,24 +16,26 @@
 function Initialize-AgentAuth {
     <#
     .SYNOPSIS
-    Sets App env vars, prepends the backend venv to PATH, mints GH_TOKEN, and
-    verifies the resulting gh identity shows dnd-agent[bot].
+    Sets App env vars, prepends the configured venv to PATH, mints GH_TOKEN, and
+    verifies the resulting gh identity is the configured App bot (not the human).
     Returns $true on success, $false on token-mint failure.
     #>
     $env:GH_APP_ID              = $AppId
     $env:GH_APP_INSTALLATION_ID = $InstallationId
     # GH_APP_PRIVATE_KEY_PATH must already be in the user-scope env — never set here.
-    $env:PATH = "$VenvScripts;" + $env:PATH
+    if ($VenvScripts) { $env:PATH = "$VenvScripts;" + $env:PATH }
     $env:GH_TOKEN = (python "$PSScriptRoot\agent_token.py")
     if ($env:GH_TOKEN -notlike 'ghs_*') {
         Write-Warning "Token mint failed (got '$($env:GH_TOKEN)'). Ensure GH_APP_PRIVATE_KEY_PATH is set in user-scope env."
         return $false
     }
-    $authOut = (& $GH auth status 2>&1 | ForEach-Object { "$_" }) -join ' '
-    if ($authOut -notmatch 'dnd-agent\[bot\]') {
-        Write-Warning "gh auth does not show dnd-agent[bot]: $authOut"
+    $authOut  = (& $GH auth status 2>&1 | ForEach-Object { "$_" }) -join ' '
+    $botRx    = if ($AppBotLogin) { [regex]::Escape($AppBotLogin) } else { '\[bot\]' }
+    $botLabel = if ($AppBotLogin) { $AppBotLogin } else { 'a *[bot] account' }
+    if ($authOut -notmatch $botRx) {
+        Write-Warning "gh auth does not show $botLabel (human or wrong account?): $authOut"
     } else {
-        Write-Host "Auth verified: dnd-agent[bot]."
+        Write-Host "Auth verified: $botLabel."
     }
     return $true
 }

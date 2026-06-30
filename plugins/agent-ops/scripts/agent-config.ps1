@@ -71,6 +71,7 @@ $BranchPrefix   = [string](Get-AgentProp $cfg 'branchPrefix');   Assert-AgentKey
 $capRaw         = Get-AgentProp $cfg 'defaultCap';               Assert-AgentKey $capRaw 'defaultCap'
 $DefaultCap     = [int]$capRaw
 $AgentOpsPath   = [string](Get-AgentProp $cfg 'agentOpsPath'); if (-not $AgentOpsPath) { $AgentOpsPath = '.agent-ops' }
+$AppBotLogin    = [string](Get-AgentProp $cfg 'appBotLogin')   # optional: e.g. "myapp[bot]" for a precise auth check (else any *[bot] is accepted)
 
 # --- labels (explicit build → cross-version hashtable + key validation) ---
 $labelsObj = Get-AgentProp $cfg 'labels'

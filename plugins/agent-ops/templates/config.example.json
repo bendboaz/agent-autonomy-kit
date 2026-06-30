@@ -2,6 +2,7 @@
   "repoSlug": "owner/repo",
   "appId": "0000000",
   "installationId": "00000000",
+  "appBotLogin": "your-app[bot]",
   "branchPrefix": "claude/agent/issue-",
   "defaultCap": 1,
   "agentOpsPath": ".agent-ops",

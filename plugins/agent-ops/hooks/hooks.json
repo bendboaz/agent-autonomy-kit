@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|CMD|Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -NonInteractive -File \"${CLAUDE_PLUGIN_ROOT}/hooks/block-dangerous-commands.ps1\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

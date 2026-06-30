@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Prune finished agent branches + worktrees for the dnd-session-assistant agent loop.
+  Prune finished agent branches + worktrees for a consuming repo's agent-ops loop.
 
 .DESCRIPTION
   Idempotent and safe. Removes ONLY branches/worktrees whose PR is MERGED or CLOSED and
@@ -19,18 +19,24 @@
   Print what would be removed without changing anything. Always safe to run first.
 
 .EXAMPLE
-  pwsh infra/agent-ops/cleanup.ps1 -DryRun
-  pwsh infra/agent-ops/cleanup.ps1
+  pwsh cleanup.ps1 -DryRun     # from the agent-ops plugin's scripts/ dir, inside the repo
+  pwsh cleanup.ps1
 #>
 param(
-  [string]$Repo     = "bendboaz/dnd-session-assistant",
-  # Default to the repo root derived from this script's location (infra/agent-ops/),
-  # so the script is portable and never operates on a stale hard-coded path.
-  [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
+  [string]$Repo,
+  [string]$RepoRoot,
   [switch]$DryRun
 )
 
-# gh is not always on PATH on this machine (see OPERATIONS.md section 8); fall back to PATH elsewhere.
+# When -Repo isn't passed (a standalone orchestrator run), load identity from the repo's
+# .agent-ops/config.json. The loader resolves the repo from $env:AGENT_OPS_REPO or the cwd
+# and sets $RepoSlug + $RepoRoot. The run-babysit.ps1 wrapper passes both explicitly.
+if (-not $Repo) {
+  . "$PSScriptRoot\agent-config.ps1"
+  $Repo = $RepoSlug
+}
+
+# gh is not always on PATH; fall back to PATH elsewhere.
 $gh = "C:\Program Files\GitHub CLI\gh.exe"
 if (-not (Test-Path $gh)) { $gh = "gh" }
 function Step($m) { Write-Host "[cleanup] $m" }
