@@ -1,0 +1,5 @@
+# Runtime deps for the agent-ops token minter (agent_token.py).
+# Kept here so the `agent-tools` CI job and a local key-env'd session install
+# the same set; these are also present in the backend venv (see OPERATIONS.md §1).
+pyjwt[crypto]>=2.8
+requests>=2.31
