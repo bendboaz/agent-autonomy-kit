@@ -1,0 +1,26 @@
+# Copy to .github/workflows/ai-review.yml in your repo. Add ANTHROPIC_API_KEY as a repo secret first.
+name: AI Review
+on:
+  pull_request:
+      paths:
+      - 'plugins/**'
+      - 'docs/**'
+      - 'CLAUDE.md'
+      - 'README.md'
+      - '.agent-ops/**'
+      - '.claude-plugin/**'
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to review'
+        required: true
+        type: string
+jobs:
+  ai-review:
+    uses: bendboaz/agent-autonomy-kit/.github/workflows/ai-review-reusable.yml@main
+    with:
+      checklist_path: .agent-ops/REVIEW-CHECKLIST.md
+      agent_ops_path: .agent-ops
+      pr_number: ${{ github.event.inputs.pr_number }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
