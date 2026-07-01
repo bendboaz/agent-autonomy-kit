@@ -15,6 +15,9 @@ on:
         description: 'PR number to review'
         required: true
         type: string
+permissions:
+  contents: read
+  pull-requests: write
 jobs:
   ai-review:
     uses: bendboaz/agent-autonomy-kit/.github/workflows/ai-review-reusable.yml@main
