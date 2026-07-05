@@ -141,12 +141,13 @@ skips the resolved finding. Then wait briefly for GitHub to propagate the commen
 # Post the reply first (before push — see §5)
 # Use a fixed no-space temp path; if Remove-Item is blocked by a guardrail, leave the file
 $tmp = "$env:TEMP\cc-reply.txt"
-@"
+$body = @"
 🛠️ **[Implementing Agent]**
 
 Addressed findings from the latest review:
 <!-- fill in: per-finding summary -->
-"@ | Set-Content -Path $tmp -Encoding utf8
+"@
+[System.IO.File]::WriteAllText($tmp, $body)   # no-encoding overload = UTF-8 without BOM on PS 5.1
 & $gh pr comment $n --repo $slug --body-file $tmp
 Remove-Item $tmp -ErrorAction SilentlyContinue
 
@@ -216,13 +217,14 @@ what's blocked + a `PushNotification` — then **stop on this PR** and move on. 
 & $gh pr edit $n --repo $slug --add-label "needs-attention"
 # Use a fixed no-space temp path; if Remove-Item is blocked by a guardrail, leave the file
 $tmp = "$env:TEMP\cc-escalate.txt"
-@"
+$body = @"
 🛠️ **[Implementing Agent]**
 
 Escalating — human attention required.
 
 **Reason:** <fill in what's blocked and what you tried>
-"@ | Set-Content -Path $tmp -Encoding utf8
+"@
+[System.IO.File]::WriteAllText($tmp, $body)   # no-encoding overload = UTF-8 without BOM on PS 5.1
 & $gh pr comment $n --repo $slug --body-file $tmp
 Remove-Item $tmp -ErrorAction SilentlyContinue
 # then send a PushNotification with a one-line summary + the PR URL
