@@ -1,0 +1,17 @@
+{
+  "_comment": "Merge this into your USER-scope ~/.claude/settings.json (not the repo's .claude/settings.json). Claude Code intentionally ignores autoMode/defaultMode:auto set at the project level, so a repo can't grant itself trust -- this must live in your own machine config. Fill in the placeholders for each repo you onboard onto agent-ops.",
+  "autoMode": {
+    "environment": [
+      "$defaults",
+      "Organization: <YOUR_ORG_OR_HANDLE>. Primary use: software development and autonomous agent-ops loops (dispatch/babysit/triage) that keep PRs green and dispatch backlog issues under a non-admin GitHub App identity.",
+      "Source control: <SOURCE_CONTROL_HOST>, specifically <OWNER>/<REPO> (repeat one line per repo onboarded onto agent-ops). Repos should be public with branch protection on main so the App identity physically cannot merge.",
+      "Key internal services: GitHub CLI (gh) used for all PR/issue automation (view, comment, checks, auth status) under the GitHub App identity <APP_BOT_LOGIN>."
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Never merge a pull request, or approve a pull request Claude itself authored, in <OWNER>/<REPO> -- the GitHub App identity is intentionally non-admin and merging is always the human's action.",
+      "Never apply the `ready` label (or your repo's equivalent dispatch-gating label) to a GitHub issue in <OWNER>/<REPO> -- that label is exclusively the human's manual dispatch signal, never an autonomous agent's.",
+      "Never take an action (approve/merge, label changes, identity/token use) beyond the specific scope of the invoked agent-ops skill (babysit-prs, dispatch-ready-issues, triage-backlog) without the human explicitly stating that broader intent in the conversation."
+    ]
+  }
+}
