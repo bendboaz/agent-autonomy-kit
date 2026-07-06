@@ -1,5 +1,5 @@
 {
-  "_comment": "Merge this into your USER-scope ~/.claude/settings.json (not the repo's .claude/settings.json). Claude Code intentionally ignores autoMode/defaultMode:auto set at the project level, so a repo can't grant itself trust -- this must live in your own machine config. Fill in the placeholders for each repo you onboard onto agent-ops.",
+  "_comment": "Merge this into your USER-scope ~/.claude/settings.json (not the repo's .claude/settings.json), then delete this _comment key -- it is not itself part of the schema. Claude Code intentionally ignores autoMode/defaultMode:auto set at the project level, so a repo can't grant itself trust -- this must live in your own machine config. Fill in the placeholders for each repo you onboard onto agent-ops. Note: the agent-ops run-{dispatch,babysit,triage}.ps1 wrappers pass --permission-mode auto explicitly on the CLI, so they do NOT need defaultMode:'auto' set here -- only set defaultMode if you also want your own interactive sessions to start in auto mode by default.",
   "autoMode": {
     "environment": [
       "$defaults",
