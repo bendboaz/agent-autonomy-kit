@@ -173,6 +173,10 @@ The loop is **bounded by rounds across runs**, not pushes within a run.
 - **Only High/Medium drive the loop.** Low-severity nits do **not** count toward convergence or the cap.
   Once no unaddressed **High/Medium** findings remain, the PR is **done** (§7) even if Low nits persist —
   this stops the loop churning on the endless Low nits an LLM reviewer tends to surface.
+- **Docs-without-code:** before treating a no-findings, all-green PR as converged, check
+  `& $gh pr diff $n --name-only`. If the linked issue calls for a code change but the diff touches only
+  documentation, the implementation is missing — the reviewer had nothing to review, not nothing to
+  find. Escalate (§6) instead of declaring the PR done.
 
 This is the "solve High/Medium, then stop; hit the cap or detect circling → escalate" bound: the
 babysitter iterates across runs until no High/Medium remain, but never indefinitely.
