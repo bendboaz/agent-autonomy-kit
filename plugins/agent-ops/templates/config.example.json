@@ -13,7 +13,8 @@
     "blocked": "blocked",
     "needsAttention": "needs-attention",
     "helpWanted": "help wanted",
-    "meta": "meta"
+    "meta": "meta",
+    "babysit": "babysit"
   },
   "roleHeaders": {
     "implementing": "🛠️ **[Implementing Agent]**",
