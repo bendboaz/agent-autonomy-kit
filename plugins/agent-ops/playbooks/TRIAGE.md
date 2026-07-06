@@ -42,19 +42,26 @@ session (cloud routine deferred; see OPERATIONS.md §6). Date is supplied to eac
    (App ID `<appId in .agent-ops/config.json>`, Installation ID `<installationId in .agent-ops/config.json>`). See OPERATIONS.md §1 for the full identity
    and KEY-ENV CONSTRAINT. The token grants read-mostly access plus issue-write for the report.
 
-2. Local (PowerShell):
+2. **When launched by `run-triage.ps1`** (the normal path): `Initialize-AgentAuth` (`common.ps1`) has
+   already minted `GH_TOKEN` and verified the auth identity before this playbook is even read —
+   nothing below needs to run.
+
+3. **Manual / no-wrapper run only** — check for an existing token first, mint only if missing:
    ```powershell
-   $env:GH_APP_ID = "<appId in .agent-ops/config.json>"
-   $env:GH_APP_INSTALLATION_ID = "<installationId in .agent-ops/config.json>"
-   $env:GH_APP_PRIVATE_KEY_PATH = "<path to the .pem, outside the repo>"
-   $env:GH_TOKEN = (python the agent-ops plugin's scripts/agent_token.py)
+   if ($env:GH_TOKEN -notlike 'ghs_*') {
+       $env:GH_APP_ID = "<appId in .agent-ops/config.json>"
+       $env:GH_APP_INSTALLATION_ID = "<installationId in .agent-ops/config.json>"
+       # GH_APP_PRIVATE_KEY_PATH must already be set as a user-scope env var — do NOT set it here
+       # (.pem extension triggers the sensitive-file hook; see OPERATIONS.md §1)
+       $env:GH_TOKEN = (python the agent-ops plugin's scripts/agent_token.py)
+   }
    & $GH auth status   # must show the App, not the human
    ```
 
-3. Cloud (GitHub Actions): token is minted by `actions/create-github-app-token` and passed as
+4. Cloud (GitHub Actions): token is minted by `actions/create-github-app-token` and passed as
    `GH_TOKEN`. See OPERATIONS.md §1 (CI subsection).
 
-4. The token is short-lived (~10 min). Re-mint if a long run might exceed that window.
+5. The token is short-lived (~10 min). Re-mint if a long run might exceed that window.
 
 ---
 
@@ -227,11 +234,12 @@ foreach ($triggerComment in $triggers) {
     }
     if (-not $answered) {
         # 3. Compose the reply (role header first) and post via --body-file (ASCII, no BOM).
-        $replyFile = [System.IO.Path]::GetTempFileName()
+        # Fixed no-space temp path; if Remove-Item is blocked by a guardrail, leave the file.
+        $replyFile = "$env:TEMP\cc-triage-reply.txt"
         $reply = "🛠️ **[Implementing Agent]**`n`n<your assessment + recommended next step>"
         Set-Content -Path $replyFile -Value $reply -Encoding ascii
         & $gh issue comment $issue.number --repo $repo --body-file $replyFile
-        Remove-Item $replyFile
+        Remove-Item $replyFile -ErrorAction SilentlyContinue
     }
 }
 ```
