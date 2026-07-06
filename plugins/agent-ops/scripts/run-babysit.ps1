@@ -42,7 +42,7 @@ Log "$($need.Count) PR(s) need attention: $prs -> launching babysitter."
 # --- LLM run ---
 $addDir  = if ($WorktreeBase) { @('--add-dir', $WorktreeBase) } else { @() }
 $errFile = "$StateDir\babysit.err"
-$out = ('' | claude -p "/babysit-prs" --permission-mode default --model sonnet @addDir 2> $errFile)
+$out = ('' | claude -p "/babysit-prs" --permission-mode auto --model sonnet @addDir 2> $errFile)
 $out | Select-Object -Last 40 | ForEach-Object { Write-Host $_ }
 $errTxt = if (Test-Path $errFile) { Get-Content $errFile -Raw } else { '' }
 $txt = (($out -join "`n") + "`n" + $errTxt)

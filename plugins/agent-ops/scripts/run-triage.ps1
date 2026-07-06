@@ -34,7 +34,7 @@ $max  = 2
 $code = -1
 for ($attempt = 1; $attempt -le $max; $attempt++) {
     Log "launching claude (attempt $attempt/$max)..."
-    $out  = ('' | claude -p "/triage-backlog" --permission-mode default --model sonnet 2> $errFile)
+    $out  = ('' | claude -p "/triage-backlog" --permission-mode auto --model sonnet 2> $errFile)
     $code = $LASTEXITCODE
     $out | Set-Content -Path $outFile -Encoding utf8
     $errTxt = if (Test-Path $errFile) { Get-Content $errFile -Raw } else { '' }
