@@ -5,9 +5,11 @@ description: Keep agent-authored PRs green and mergeable — mechanical fixes on
 
 ## Scope
 
-Operates on **the current repo** (identity in `.agent-ops/config.json`). Touches only open PRs whose
-head branch matches the configured `branchPrefix` (e.g. `claude/agent/issue-*`) — the autonomous lane.
-Never touches an interactive `claude/...` (non-agent) branch.
+Operates on **the current repo** (identity in `.agent-ops/config.json`). Touches only open PRs that are
+either on the configured `branchPrefix` (e.g. `claude/agent/issue-*` — the autonomous lane) **or**
+carry the opt-in `labels.babysit` label (default `babysit`) — a human explicitly extending babysit's
+scope to a specific PR. Any other PR, including an interactive `claude/...` (non-agent) branch without
+that label, is never touched.
 
 ## Identity & token
 
@@ -27,7 +29,8 @@ Read in full before acting:
 
 ## Hard guardrails (non-negotiable)
 
-- **Scope:** only `branchPrefix` PRs. Never touch an interactive (non-agent) `claude/...` branch.
+- **Scope:** only `branchPrefix` PRs, or a PR explicitly labeled `labels.babysit`. Never touch any
+  other interactive (non-agent) `claude/...` branch.
 - **Mechanical fixes only.** A fix needing real logic or a product decision → escalate (`needs-attention`
   + an `[Implementing Agent]` comment + a PushNotification).
 - **Commit-cap:** default 3 pushes per PR per run → hit the cap, escalate, move on.

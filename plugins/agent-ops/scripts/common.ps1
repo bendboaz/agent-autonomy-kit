@@ -241,11 +241,25 @@ function Get-PRNeedsAttention {
     return $behind -or $failed -or $changes -or $reviewOpen
 }
 
+function Test-PRBabysitEligible {
+    <#
+    .SYNOPSIS
+    Pure predicate: is this PR (coarse list fields only) in babysit's scope —
+    on an agent-dispatch branch, or explicitly opted in via the babysit label
+    ($Labels.Babysit) — and not already flagged needs-attention?
+    This function never calls gh — suitable for fixture-based unit tests.
+    #>
+    param($PR)
+    $inScope = ($PR.headRefName -like "$BranchPrefix*") -or ($PR.labels.name -contains $Labels.Babysit)
+    return $inScope -and ($PR.labels.name -notcontains $Labels.NeedsAttention)
+}
+
 function Get-PRsNeedingAttention {
     <#
     .SYNOPSIS
-    Lists open claude/agent/issue-* PRs (excluding needs-attention) that need
-    a babysitter round. Fetches per-PR detail for the classification check.
+    Lists open PRs in babysit's scope (agent-dispatch branch, or opted in via
+    the babysit label; excluding needs-attention) that need a babysitter
+    round. Fetches per-PR detail for the classification check.
     Pass -PullRequests to inject the coarse PR list fixture (skips gh pr list).
     #>
     param([array]$PullRequests)
@@ -253,10 +267,7 @@ function Get-PRsNeedingAttention {
         $PullRequests = & $GH pr list --repo $RepoSlug --state open `
             --json number,headRefName,labels --limit 100 | ConvertFrom-Json
     }
-    $agent = @($PullRequests | Where-Object {
-        $_.headRefName -like "$BranchPrefix*" -and
-        ($_.labels.name -notcontains $Labels.NeedsAttention)
-    })
+    $agent = @($PullRequests | Where-Object { Test-PRBabysitEligible -PR $_ })
     if ($agent.Count -eq 0) { return @() }
 
     $need = @()

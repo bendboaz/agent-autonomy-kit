@@ -84,6 +84,13 @@ foreach ($k in $labelMap.Keys) {
     $Labels[$k] = [string]$v
 }
 
+# Optional: opt-in label letting a human extend babysit-prs' scope to a PR that isn't on an
+# agent-dispatch branch. Not run through Assert-AgentKey — repos without this key (including
+# existing consuming repos' committed config.json) silently get the 'babysit' default.
+$babysitLabel = [string](Get-AgentProp $labelsObj 'babysit')
+if (-not $babysitLabel) { $babysitLabel = 'babysit' }
+$Labels['Babysit'] = $babysitLabel
+
 # --- role headers ---
 $rhObj = Get-AgentProp $cfg 'roleHeaders'
 if (-not $rhObj) { throw "agent-ops: config.json missing 'roleHeaders' ($configPath)." }

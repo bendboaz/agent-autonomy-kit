@@ -5,7 +5,8 @@
 > `.agent-ops/config.json` and `.agent-ops/REPO-FACTS.md`**. Concrete examples below (e.g. `npm`/`tsc`,
 > `frontend`/`backend`, `src/...`) are from the reference repo; always defer to this repo's files.
 
-Drives each open `claude/agent/issue-*` PR to a **clean, mergeable review** — **including substantive
+Drives each open `claude/agent/issue-*` PR — or any PR the human has explicitly opted in via the
+`labels.babysit` label — to a **clean, mergeable review** — **including substantive
 code changes/additions**, not just mechanical nits — using a **bounded, one-iteration-per-run loop**.
 Escalates only when genuinely blocked (contract-file change, product decision, iteration cap, or going
 in circles).
@@ -48,15 +49,20 @@ scripts/agent_token.py)`.
 
 ## 2. Select PRs
 
-List open PRs whose head branch matches `claude/agent/issue-*` (the autonomous lane — never touch
-interactive `claude/...` branches), with CI, review, and mergeability state.
+List open PRs whose head branch matches `claude/agent/issue-*` (the autonomous lane) **or** that carry
+the opt-in `labels.babysit` label (default `babysit` — a human explicitly extending scope to a PR that
+isn't on an agent-dispatch branch). Never touch any other interactive `claude/...` branch, with CI,
+review, and mergeability state.
 
 ```powershell
 $gh   = $GH
 $slug = "$RepoSlug"
 $prs  = & $gh pr list --repo $slug --state open `
   --json number,headRefName,mergeStateStatus,reviewDecision,statusCheckRollup,labels | ConvertFrom-Json
-$agentPRs = $prs | Where-Object { $_.headRefName -match '^claude/agent/issue-' -and ($_.labels.name -notcontains 'needs-attention') }
+$agentPRs = $prs | Where-Object {
+  ($_.headRefName -match '^claude/agent/issue-' -or ($_.labels.name -contains $Labels.Babysit)) -and
+  ($_.labels.name -notcontains 'needs-attention')
+}
 ```
 Skip PRs already labelled `needs-attention` (a human owns them until they clear it). A PR **needs a
 round** this run if any of: `mergeStateStatus` in `BEHIND/DIRTY/UNSTABLE`; a required check
@@ -233,7 +239,7 @@ Remove-Item $tmp -ErrorAction SilentlyContinue
 **Hard limits (never):** approve a PR; merge; force-past a failing required check; edit
 `.github/workflows/*` or `.agent-ops/**` (orchestrator-only); change branch protection / rulesets
 / secrets; edit issues or their labels (except adding `needs-attention` on the PR); touch a branch that
-isn't `claude/agent/issue-*`.
+isn't `claude/agent/issue-*` and doesn't carry the opt-in `labels.babysit` label.
 
 ---
 

@@ -99,13 +99,15 @@ Three loops touch the same issues, labels, and PR branches. The rules that keep 
 1. **Branch naming:** one branch per issue, **`claude/agent/issue-N`**. The `claude/` prefix matches
    the desktop default (one namespace for all Claude branches); the `agent/` segment marks *autonomous*
    work, so the babysitter can safely scope to `claude/agent/issue-*` and never disturb a branch from
-   an interactive `claude/...` session.
+   an interactive `claude/...` session, **unless** that PR carries the opt-in `labels.babysit` label
+   (default `babysit`) — a human explicitly extending babysit's scope to that one PR. This naming
+   convention itself is unaffected; the label is a separate, explicit per-PR override.
 2. **Single-writer labels:** only the **dispatcher** writes `in-progress`; only the **human** writes
    `ready` / `priority:*` / `blocked`. Triage and babysitter never write these.
 3. **Lane separation:**
    - **Dispatcher** acts on **issues** (claims them) and opens PRs. Never modifies an existing PR's code.
-   - **Babysitter** acts on **PRs only** (`claude/agent/issue-*`). Never edits issues or their labels
-     (except adding `needs-attention` on escalation, per §5).
+   - **Babysitter** acts on **PRs only** (`claude/agent/issue-*`, or a PR labeled `labels.babysit`).
+     Never edits issues or their labels (except adding `needs-attention` on escalation, per §5).
    - **Triage** **proposes** (its report) **and grooms issues the human invites it to.** It may:
      refresh its report issue; read every issue's **comment thread** and treat human comments as
      authoritative direction; and, on **`help wanted`** issues only, **expand the body and post a
