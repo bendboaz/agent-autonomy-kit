@@ -357,6 +357,7 @@ Always assign the repo owner as reviewer (resolve dynamically — no hardcoded l
 
 ```powershell
 $owner = (& $gh repo view $repo --json owner --jq '.owner.login')
+if (-not $owner) { throw "Could not resolve repo owner for $repo" }
 & $gh pr create `
     --repo $repo `
     --head $branch `
