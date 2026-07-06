@@ -107,7 +107,11 @@ Three loops touch the same issues, labels, and PR branches. The rules that keep 
 3. **Lane separation:**
    - **Dispatcher** acts on **issues** (claims them) and opens PRs. Never modifies an existing PR's code.
    - **Babysitter** acts on **PRs only** (`claude/agent/issue-*`, or a PR labeled `labels.babysit`).
-     Never edits issues or their labels (except adding `needs-attention` on escalation, per §5).
+     Never edits issues or their labels, with two narrow, explicitly-documented exceptions: adding
+     `needs-attention` on escalation (§5), and appending an entry to the shared `🧹 Review nit ledger`
+     issue for a Low-severity finding it's deliberately deferring (BABYSIT.md §7). Both are procedural
+     bookkeeping, not the human's issue-triage/backlog domain — the babysitter still never touches
+     `ready` / `priority:*` / `blocked`, and never opens, closes, or restructures an issue.
    - **Triage** **proposes** (its report) **and grooms issues the human invites it to.** It may:
      refresh its report issue; read every issue's **comment thread** and treat human comments as
      authoritative direction; and, on **`help wanted`** issues only, **expand the body and post a

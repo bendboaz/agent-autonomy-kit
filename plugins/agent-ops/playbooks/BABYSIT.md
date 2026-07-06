@@ -240,7 +240,8 @@ Remove-Item $tmp -ErrorAction SilentlyContinue
 
 **Hard limits (never):** approve a PR; merge; force-past a failing required check; edit
 `.github/workflows/*` or `.agent-ops/**` (orchestrator-only); change branch protection / rulesets
-/ secrets; edit issues or their labels (except adding `needs-attention` on the PR); touch a branch that
+/ secrets; edit issues or their labels — except adding `needs-attention` on the PR, or appending a
+deferred Low-nit entry to the `🧹 Review nit ledger` issue (§7); touch a branch that
 isn't `claude/agent/issue-*` and doesn't carry the opt-in `labels.babysit` label.
 
 ---
