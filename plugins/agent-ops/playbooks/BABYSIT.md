@@ -55,6 +55,8 @@ isn't on an agent-dispatch branch). Never touch any other interactive `claude/..
 review, and mergeability state.
 
 ```powershell
+# $GH, $RepoSlug, and $Labels come from the config already loaded per §1 (agent-config.ps1) —
+# not reassigned here, same as $gh/$slug below are just local aliases for readability.
 $gh   = $GH
 $slug = "$RepoSlug"
 $prs  = & $gh pr list --repo $slug --state open `

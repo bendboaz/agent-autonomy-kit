@@ -247,7 +247,9 @@ function Test-PRBabysitEligible {
     Pure predicate: is this PR (coarse list fields only) in babysit's scope —
     on an agent-dispatch branch, or explicitly opted in via the babysit label
     ($Labels.Babysit) — and not already flagged needs-attention?
-    This function never calls gh — suitable for fixture-based unit tests.
+    Like the rest of common.ps1's selection logic (e.g. Get-LinkedPRForIssue),
+    this assumes $BranchPrefix/$Labels are already loaded by agent-config.ps1;
+    it never calls gh itself, so it's fixture-testable once those are set.
     #>
     param($PR)
     $inScope = ($PR.headRefName -like "$BranchPrefix*") -or ($PR.labels.name -contains $Labels.Babysit)
