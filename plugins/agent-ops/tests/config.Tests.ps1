@@ -24,6 +24,9 @@ Describe 'Config loader parity (dnd fixture == original hardcoded constants)' {
         $Labels.HelpWanted     | Should -Be 'help wanted'
         $Labels.Meta           | Should -Be 'meta'
     }
+    It 'labels.babysit defaults to "babysit" when absent from committed config (back-compat for existing consuming repos)' {
+        $Labels.Babysit | Should -Be 'babysit'
+    }
     It 'role headers carry the [Role] tags the attention classifier greps for' {
         $RoleHeaders.Implementing | Should -Match '\[Implementing Agent\]'
         $RoleHeaders.Reviewing    | Should -Match '\[Reviewing Agent\]'

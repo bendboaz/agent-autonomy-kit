@@ -38,7 +38,21 @@ Add `**/config.local.json`, `**/agent-state/`, `*.backoff`, and `*-lock-*.json` 
 Copy `templates/ai-review.caller.yml` to `<repo>/.github/workflows/ai-review.yml`; set its
 `paths:` filter to your source dirs. Confirm `ANTHROPIC_API_KEY` is a repo secret.
 
-### 4. Register the loops (run in a real terminal, not via Claude)
+### 4. Enable auto permission mode for the loops (once per machine)
+The `run-{dispatch,babysit,triage}.ps1` wrappers launch `claude -p` with `--permission-mode auto`, so
+headless runs get routed through Claude Code's background safety classifier instead of either
+(a) prompting for approval with no TTY to answer it, or (b) needing a hand-maintained static allowlist.
+Requires Claude Code v2.1.83+ and Sonnet 4.6+/Opus 4.6+ (see [Permission modes](https://code.claude.com/docs/en/permission-modes#eliminate-prompts-with-auto-mode)).
+
+Merge `plugins/agent-ops/templates/autoMode.settings.example.json` into your **user-scope**
+`~/.claude/settings.json` (project-level `autoMode` is intentionally ignored by Claude Code, so this
+can't be committed into the repo). Fill in the placeholders per repo you onboard. The `environment`
+block tells the classifier which repos/services are trusted (cuts down false-positive blocks); the
+`soft_deny` block encodes the loops' own authorization limits (no autonomous merge/self-approve/label
+changes) as defense-in-depth alongside the non-admin GitHub App identity — `soft_deny` still yields to
+an explicit human instruction in an interactive session, it only holds the line when nothing prompted it.
+
+### 5. Register the loops (run in a real terminal, not via Claude)
 ```powershell
 # From a PowerShell terminal (PS 5.1 or PS 7 both work):
 .\<plugin>\scripts\install-tasks.ps1 -RepoRoot <repo root> -WhatIf   # preview

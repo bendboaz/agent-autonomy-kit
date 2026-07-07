@@ -238,6 +238,33 @@ Describe 'Get-PRsNeedingAttention' {
 }
 
 # ---------------------------------------------------------------------------
+# Test-PRBabysitEligible
+# ---------------------------------------------------------------------------
+
+Describe 'Test-PRBabysitEligible' {
+    It 'is eligible on a branch-prefix match alone' {
+        $pr = New-FakePR 1 'claude/agent/issue-1'
+        Test-PRBabysitEligible -PR $pr | Should -Be $true
+    }
+    It 'is eligible on the opt-in babysit label alone, even off the agent branch prefix' {
+        $pr = New-FakePR 3 'docs/some-interactive-branch' '' @($Labels.Babysit)
+        Test-PRBabysitEligible -PR $pr | Should -Be $true
+    }
+    It 'is not eligible with neither the branch prefix nor the babysit label' {
+        $pr = New-FakePR 4 'docs/some-interactive-branch'
+        Test-PRBabysitEligible -PR $pr | Should -Be $false
+    }
+    It 'needs-attention overrides a branch-prefix match' {
+        $pr = New-FakePR 5 'claude/agent/issue-5' '' @($Labels.NeedsAttention)
+        Test-PRBabysitEligible -PR $pr | Should -Be $false
+    }
+    It 'needs-attention overrides an opt-in babysit label match' {
+        $pr = New-FakePR 6 'docs/some-interactive-branch' '' @($Labels.Babysit, $Labels.NeedsAttention)
+        Test-PRBabysitEligible -PR $pr | Should -Be $false
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Backoff functions (Test-LoopBackoff / Update-LoopBackoff / Clear-LoopBackoff)
 # ---------------------------------------------------------------------------
 

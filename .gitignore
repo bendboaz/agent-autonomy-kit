@@ -1,6 +1,8 @@
 # --- Machine-specific config: NEVER commit (public repo) ---
 # Per-repo machine paths (worktree base, venv, gh path) live here, gitignored.
 **/config.local.json
+# Machine-local Claude Code permission overrides (tracked .claude/settings.json stays committed).
+.claude/settings.local.json
 # ...except committed test fixtures (placeholder values only, no real machine paths).
 !plugins/agent-ops/tests/fixtures/**/config.local.json
 

@@ -40,7 +40,7 @@ Log "$($dispatchable.Count) dispatchable issue(s) [#$(($dispatchable | ForEach-O
 # --- LLM run ---
 $addDir  = if ($WorktreeBase) { @('--add-dir', $WorktreeBase) } else { @() }
 $errFile = "$StateDir\dispatch.err"
-$out = ('' | claude -p "/dispatch-ready-issues" --permission-mode default --model sonnet @addDir 2> $errFile)
+$out = ('' | claude -p "/dispatch-ready-issues" --permission-mode auto --model sonnet @addDir 2> $errFile)
 $out | Select-Object -Last 40 | ForEach-Object { Write-Host $_ }
 $errTxt = if (Test-Path $errFile) { Get-Content $errFile -Raw } else { '' }
 $txt = (($out -join "`n") + "`n" + $errTxt)
