@@ -74,6 +74,20 @@ requires a **public** repo. Onboarding a private repo without branch protection 
 property — `docs/SECURITY.md` makes public + branch-protected a hard precondition, and
 `install-tasks.ps1` verifies it before registering loops.
 
+## Branch & PR conventions
+
+- **Never commit to `main`** — every change, however small (docs, one-line config), goes
+  branch → push → PR. Only the human merges (branch protection + non-admin App identity).
+- **Interactive/assistant sessions** name branches `claude/<type>/<short-slug>` with `<type>` one of
+  `fix` / `feat` / `docs` / `config` / `chore` / `infra` — e.g. `claude/docs/branch-pr-conventions`.
+  Create the branch (or worktree: `git worktree add <path> -b <branch> origin/main`) *before* the
+  first commit.
+- **`claude/agent/issue-N` is reserved** for the autonomous loops (it is the `branchPrefix` in
+  consuming repos' `.agent-ops/config.json`). Never hand-create branches under `claude/agent/`.
+- **PRs:** imperative title; body says what changed, why, and how it was verified — paste the actual
+  Pester/pytest output for engine changes, not "tests pass". The AI review runs on every push:
+  batch fixes locally and push once, don't push per-nit.
+
 ## Testing
 
 ```powershell

@@ -5,9 +5,11 @@
   recursive delete, machine ops, scheduled-task changes, edits to `.github/workflows/**`, the permission
   allowlist, the guardrail hooks themselves, and — when `AGENT_LOOP=1` — the per-repo `.agent-ops/**`.
 - **block-sensitive-files.ps1** — a machine-wide secret-file guard (blocks reading/writing `.env`, keys,
-  `.pem`, certs). **Not wired by this plugin**, to avoid duplicating a hook you may already run globally.
-  If you don't have it globally, add it to your user `settings.json` (PreToolUse, matcher
-  `Read|Edit|Write|Bash|PowerShell|CMD`) pointing at this copy, or copy it into your global hooks dir.
+  `.pem`, certs, and the Claude Code `.credentials.json` OAuth store). **Not wired by this plugin**, to
+  avoid duplicating a hook you may already run globally. If you don't have it globally, add it to your
+  user `settings.json` (PreToolUse, matcher `Read|Edit|Write|Grep|Bash|PowerShell|CMD`) pointing at this
+  copy, or copy it into your global hooks dir. `Grep` matters: with `output_mode: content` it can dump a
+  secret file into context just like Read, so the guard also inspects Grep's `path` and `glob` inputs.
 
 Both **fail open** — a hook bug never bricks a session. The GitHub-side guards (non-admin App + branch
 protection) remain the backstop, so the deny-gate blocks the *operation* regardless of which credential
