@@ -352,13 +352,19 @@ Closes #$n
 
 ### 7.3 Open the PR
 
+Always assign the repo owner as reviewer (resolve dynamically — no hardcoded logins in the engine).
+"Assign reviewer" means the GitHub `--reviewer` flag, **not** a confirmation step before opening the PR.
+
 ```powershell
+$owner = (& $gh repo view $repo --json owner --jq '.owner.login')
+if (-not $owner) { throw "Could not resolve repo owner for $repo" }
 & $gh pr create `
     --repo $repo `
     --head $branch `
     --base main `
     --title "$(& $gh issue view $n --repo $repo --json title --jq '.title') (closes #$n)" `
-    --body-file $prBodyPath
+    --body-file $prBodyPath `
+    --reviewer $owner
 
 Remove-Item $prBodyPath -ErrorAction SilentlyContinue
 ```
@@ -501,7 +507,7 @@ Write-Host "No writes made. Re-run without --dry-run to dispatch."
 | Remove label | `gh issue edit N --repo ... --remove-label "in-progress"` |
 | Create worktree | `git worktree add <path> -b claude/agent/issue-N origin/main` |
 | Push branch | `git push origin claude/agent/issue-N` |
-| Open PR | `gh pr create --head claude/agent/issue-N --base main --body-file <path>` |
+| Open PR | `gh pr create --head claude/agent/issue-N --base main --body-file <path> --reviewer <owner>` |
 | Open draft PR | `gh pr create --draft ...` |
 | Post issue comment | `gh issue comment N --repo ... --body-file <path>` |
 | Remove worktree | `git worktree remove <path> --force` |
