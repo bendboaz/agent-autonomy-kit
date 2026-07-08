@@ -407,6 +407,15 @@ Describe 'Send-LoopFailureNotification' {
     It 'clips an overlong detail before handing it to either channel' {
         $longDetail = 'x' * 300
         Send-LoopFailureNotification -Loop 'dispatch' -Detail $longDetail
-        Should -Invoke Send-WindowsToast -Times 1 -ParameterFilter { $Message.Length -le 145 }
+        # 140 chars + '...' (3) = 143 exactly - a tight bound so a regression that
+        # widens the clip (e.g. to 144) would actually fail this assertion.
+        Should -Invoke Send-WindowsToast -Times 1 -ParameterFilter { $Message.Length -le 143 }
+    }
+    It 'clips the combined phone-push message separately, since title + detail can exceed the toast clip alone' {
+        $longDetail = 'x' * 300
+        Send-LoopFailureNotification -Loop 'dispatch' -Detail $longDetail
+        # PushNotification's own contract is ~200 chars; title + separator + the
+        # 143-char detail clip can exceed that, so this must be clipped tighter still.
+        Should -Invoke Send-ClaudePhonePush -Times 1 -ParameterFilter { $Message.Length -le 190 }
     }
 }

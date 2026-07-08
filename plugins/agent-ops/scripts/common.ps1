@@ -579,5 +579,10 @@ function Send-LoopFailureNotification {
     $clipped = if ($Detail.Length -gt 140) { $Detail.Substring(0, 140) + '...' } else { $Detail }
     $title   = "agent-ops: $Loop failed ($RepoSlug)"
     Send-WindowsToast -Title $title -Message $clipped
-    Send-ClaudePhonePush -Message "$title -- $clipped"
+    # PushNotification's own contract caps messages at ~200 chars (mobile OSes
+    # truncate) - title + separator + the 140-char detail clip can exceed that,
+    # so clip the combined phone-push payload separately from the toast message.
+    $phoneMsg = "$title -- $clipped"
+    if ($phoneMsg.Length -gt 190) { $phoneMsg = $phoneMsg.Substring(0, 187) + '...' }
+    Send-ClaudePhonePush -Message $phoneMsg
 }
