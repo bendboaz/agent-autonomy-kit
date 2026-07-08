@@ -23,15 +23,21 @@ $stamp = Get-Date -Format 'yyyy-MM-dd_HH-mm-ss'
 Log "=== run start (pid $PID, session=$([Environment]::UserName)) ==="
 
 # --- mint App token and verify identity ---
-if (-not (Initialize-AgentAuth)) { Log "token mint FAILED; aborting."; exit 1 }
+if (-not (Initialize-AgentAuth)) {
+    Log "token mint FAILED; aborting."
+    Send-LoopFailureNotification -Loop 'triage' -Detail 'GitHub App token mint failed (check GH_APP_PRIVATE_KEY_PATH / App credentials).'
+    exit 1
+}
 Log "App token minted and identity verified."
 
 # --- run triage headless, with one retry on a transient (non usage-limit) failure ---
 $outFile  = "$StateDir\triage.out"
 $errFile  = "$StateDir\triage.err"
 $limitRx  = '(?i)(usage limit|rate limit|limit reached|overloaded|\bquota\b|\b429\b)'
-$max  = 2
-$code = -1
+$max      = 2
+$code     = -1
+$limitHit = $false
+$lastLine = ''
 for ($attempt = 1; $attempt -le $max; $attempt++) {
     Log "launching claude (attempt $attempt/$max)..."
     $out  = ('' | claude -p "/triage-backlog" --permission-mode auto --model sonnet 2> $errFile)
@@ -48,8 +54,13 @@ for ($attempt = 1; $attempt -le $max; $attempt++) {
     Log "attempt $attempt FAILED (exit $code); archived to $arch"
 
     $combined = (($out -join "`n") + "`n" + $errTxt)
-    if ($combined -match $limitRx) { Log "usage/rate limit detected; not retrying."; break }
+    $lastLine = (($combined -split "`n") | Where-Object { $_.Trim() } | Select-Object -Last 1)
+    if ($combined -match $limitRx) { $limitHit = $true; Log "usage/rate limit detected; not retrying."; break }
     if ($attempt -lt $max) { Log "retrying in 30s..."; Start-Sleep -Seconds 30 }
 }
 Log "=== run end (final exit $code) ==="
+if ($code -ne 0 -and -not $limitHit) {
+    $attemptsRun = [Math]::Min($attempt, $max)
+    Send-LoopFailureNotification -Loop 'triage' -Detail "claude exited $code after $attemptsRun attempt(s): $lastLine"
+}
 exit $code
