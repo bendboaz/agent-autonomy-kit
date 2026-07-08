@@ -383,7 +383,7 @@ Describe 'Send-ClaudePhonePush' {
         Mock Start-Job {}
         { Send-ClaudePhonePush -Message 'unit test message' } | Should -Not -Throw
         Should -Invoke Get-Command -Times 1 -Exactly -ParameterFilter { $Name -eq 'claude' }
-        Should -Invoke Start-Job -Times 0
+        Should -Invoke Start-Job -Times 0 -Exactly
     }
 }
 
@@ -410,6 +410,9 @@ Describe 'Send-LoopFailureNotification' {
         # 140 chars + '...' (3) = 143 exactly - a tight bound so a regression that
         # widens the clip (e.g. to 144) would actually fail this assertion.
         Should -Invoke Send-WindowsToast -Times 1 -Exactly -ParameterFilter { $Message.Length -le 143 }
+        # A long detail must still reach the phone-push channel, not just the toast -
+        # the exact clip length for that channel is covered separately below.
+        Should -Invoke Send-ClaudePhonePush -Times 1 -Exactly
     }
     It 'clips the combined phone-push message separately, since title + detail can exceed the toast clip alone' {
         $longDetail = 'x' * 300
