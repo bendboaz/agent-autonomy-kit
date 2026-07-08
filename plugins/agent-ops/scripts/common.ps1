@@ -500,3 +500,72 @@ function Remove-AgentLock {
     $lockFile = (Join-Path $StateDir "$Loop-lock-$IssueNumber.json")
     if (Test-Path $lockFile) { Remove-Item $lockFile -Force -ErrorAction SilentlyContinue }
 }
+
+# ---------------------------------------------------------------------------
+# Failure notifications (unattended loops have no one watching stdout)
+# ---------------------------------------------------------------------------
+
+function Send-WindowsToast {
+    <#
+    .SYNOPSIS
+    Fires a local Windows toast via the built-in WinRT APIs (no module install).
+    Windows-only; no-ops on other platforms (CI runs Pester on ubuntu-latest).
+    Never throws - a notification failure must not fail the calling loop.
+    #>
+    param([Parameter(Mandatory)][string]$Title, [Parameter(Mandatory)][string]$Message)
+    if ($IsWindows -eq $false) { return }
+    try {
+        [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+        [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+        # Well-known AUMID for Windows PowerShell itself - lets an unpackaged script
+        # raise a toast without registering a shortcut/app identity.
+        $appId    = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
+        $template  = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+        $textNodes = $template.GetElementsByTagName('text')
+        $textNodes.Item(0).AppendChild($template.CreateTextNode($Title))   | Out-Null
+        $textNodes.Item(1).AppendChild($template.CreateTextNode($Message)) | Out-Null
+        $toast = [Windows.UI.Notifications.ToastNotification]::new($template)
+        [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId).Show($toast)
+    } catch {
+        Write-Warning "Windows toast failed: $_"
+    }
+}
+
+function Send-ClaudePhonePush {
+    <#
+    .SYNOPSIS
+    Best-effort phone push: spins up a tiny headless `claude` session whose only
+    job is to call the PushNotification tool. Requires claude to be able to log
+    in itself, so this is a secondary channel - it will silently no-op for the
+    exact failure mode where claude can't start a session at all (e.g. a stale
+    CLI login), which is why Send-WindowsToast is the guaranteed channel.
+    Bounded by a timeout so a hung claude invocation can't block the loop.
+    #>
+    param([Parameter(Mandatory)][string]$Message)
+    if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { return }
+    try {
+        $prompt = "Call the PushNotification tool with status proactive and this exact message: $Message. Do not do anything else."
+        $job = Start-Job -ScriptBlock {
+            param($p) claude -p $p --permission-mode auto --remote-control 2>&1 | Out-Null
+        } -ArgumentList $prompt
+        Wait-Job $job -Timeout 45 | Out-Null
+        Stop-Job $job -ErrorAction SilentlyContinue
+        Remove-Job $job -Force -ErrorAction SilentlyContinue
+    } catch {
+        Write-Warning "Phone push attempt failed: $_"
+    }
+}
+
+function Send-LoopFailureNotification {
+    <#
+    .SYNOPSIS
+    Tells the human an unattended loop run failed: a guaranteed local Windows
+    toast, plus a best-effort phone push. Never throws - call this from a
+    catch-adjacent path in a wrapper script, not the other way around.
+    #>
+    param([Parameter(Mandatory)][string]$Loop, [Parameter(Mandatory)][string]$Detail)
+    $clipped = if ($Detail.Length -gt 140) { $Detail.Substring(0, 140) + '...' } else { $Detail }
+    $title   = "agent-ops: $Loop failed ($RepoSlug)"
+    Send-WindowsToast -Title $title -Message $clipped
+    Send-ClaudePhonePush -Message "$title -- $clipped"
+}

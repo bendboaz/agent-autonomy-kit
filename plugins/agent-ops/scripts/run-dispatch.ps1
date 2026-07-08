@@ -23,7 +23,11 @@ if (Test-LoopBackoff 'dispatch') {
 }
 
 # --- mint App token ---
-if (-not (Initialize-AgentAuth)) { Log "token mint failed; skipping."; exit 1 }
+if (-not (Initialize-AgentAuth)) {
+    Log "token mint failed; skipping."
+    Send-LoopFailureNotification -Loop 'dispatch' -Detail 'GitHub App token mint failed (check GH_APP_PRIVATE_KEY_PATH / App credentials).'
+    exit 1
+}
 
 # --- log any active dispatch lock files (recovery runs inside the claude session) ---
 foreach ($lf in (Get-AgentLockFiles 'dispatch')) {
@@ -40,7 +44,8 @@ Log "$($dispatchable.Count) dispatchable issue(s) [#$(($dispatchable | ForEach-O
 # --- LLM run ---
 $addDir  = if ($WorktreeBase) { @('--add-dir', $WorktreeBase) } else { @() }
 $errFile = "$StateDir\dispatch.err"
-$out = ('' | claude -p "/dispatch-ready-issues" --permission-mode auto --model sonnet @addDir 2> $errFile)
+$out  = ('' | claude -p "/dispatch-ready-issues" --permission-mode auto --model sonnet @addDir 2> $errFile)
+$code = $LASTEXITCODE
 $out | Select-Object -Last 40 | ForEach-Object { Write-Host $_ }
 $errTxt = if (Test-Path $errFile) { Get-Content $errFile -Raw } else { '' }
 $txt = (($out -join "`n") + "`n" + $errTxt)
@@ -51,4 +56,9 @@ if ($txt -match '(?i)(usage limit|rate limit|limit reached|overloaded|\bquota\b|
     Log "usage limit detected -> backoff level $($bo.level) for $($bo.minutes) min."
 } else {
     Clear-LoopBackoff 'dispatch'
+    if ($code -ne 0) {
+        $lastLine = (($txt -split "`n") | Where-Object { $_.Trim() } | Select-Object -Last 1)
+        Log "claude exited $code; notifying."
+        Send-LoopFailureNotification -Loop 'dispatch' -Detail "claude exited ${code}: $lastLine"
+    }
 }

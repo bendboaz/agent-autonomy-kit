@@ -23,7 +23,11 @@ if (Test-LoopBackoff 'babysit') {
 }
 
 # --- mint App token ---
-if (-not (Initialize-AgentAuth)) { Log "token mint failed; skipping."; exit 1 }
+if (-not (Initialize-AgentAuth)) {
+    Log "token mint failed; skipping."
+    Send-LoopFailureNotification -Loop 'babysit' -Detail 'GitHub App token mint failed (check GH_APP_PRIVATE_KEY_PATH / App credentials).'
+    exit 1
+}
 
 # --- preflight: prune stale worktrees + ensure worktree base dir ---
 $cleanupScript = "$PSScriptRoot\cleanup.ps1"
@@ -42,7 +46,8 @@ Log "$($need.Count) PR(s) need attention: $prs -> launching babysitter."
 # --- LLM run ---
 $addDir  = if ($WorktreeBase) { @('--add-dir', $WorktreeBase) } else { @() }
 $errFile = "$StateDir\babysit.err"
-$out = ('' | claude -p "/babysit-prs" --permission-mode auto --model sonnet @addDir 2> $errFile)
+$out  = ('' | claude -p "/babysit-prs" --permission-mode auto --model sonnet @addDir 2> $errFile)
+$code = $LASTEXITCODE
 $out | Select-Object -Last 40 | ForEach-Object { Write-Host $_ }
 $errTxt = if (Test-Path $errFile) { Get-Content $errFile -Raw } else { '' }
 $txt = (($out -join "`n") + "`n" + $errTxt)
@@ -53,4 +58,9 @@ if ($txt -match '(?i)(usage limit|rate limit|limit reached|overloaded|\bquota\b|
     Log "usage limit detected -> backoff level $($bo.level) for $($bo.minutes) min."
 } else {
     Clear-LoopBackoff 'babysit'
+    if ($code -ne 0) {
+        $lastLine = (($txt -split "`n") | Where-Object { $_.Trim() } | Select-Object -Last 1)
+        Log "claude exited $code; notifying."
+        Send-LoopFailureNotification -Loop 'babysit' -Detail "claude exited ${code}: $lastLine"
+    }
 }

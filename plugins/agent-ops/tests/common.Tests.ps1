@@ -360,3 +360,44 @@ Describe 'Get-IssueFiles' {
         $files | Should -BeNullOrEmpty
     }
 }
+
+# ---------------------------------------------------------------------------
+# Failure notifications
+# ---------------------------------------------------------------------------
+
+Describe 'Send-WindowsToast' {
+    It 'does not throw on any platform (no-ops when not on Windows)' {
+        { Send-WindowsToast -Title 'agent-ops: test' -Message 'unit test message' } | Should -Not -Throw
+    }
+}
+
+Describe 'Send-ClaudePhonePush' {
+    It 'does not throw and no-ops when the claude command is unavailable' {
+        # CI runners (and most machines running this test) won't have claude on PATH;
+        # this only asserts the not-found guard, not the real spawn-and-notify path.
+        Mock Get-Command { $null } -ParameterFilter { $Name -eq 'claude' }
+        { Send-ClaudePhonePush -Message 'unit test message' } | Should -Not -Throw
+        Should -Invoke Get-Command -Times 1 -ParameterFilter { $Name -eq 'claude' }
+    }
+}
+
+Describe 'Send-LoopFailureNotification' {
+    BeforeEach {
+        Mock Send-WindowsToast {}
+        Mock Send-ClaudePhonePush {}
+    }
+    It 'fires both channels with a loop- and repo-scoped title' {
+        Send-LoopFailureNotification -Loop 'triage' -Detail 'Not logged in - Please run /login'
+        Should -Invoke Send-WindowsToast -Times 1 -ParameterFilter {
+            $Title -like '*triage*' -and $Title -like "*$RepoSlug*" -and $Message -like '*Not logged in*'
+        }
+        Should -Invoke Send-ClaudePhonePush -Times 1 -ParameterFilter {
+            $Message -like '*triage*' -and $Message -like '*Not logged in*'
+        }
+    }
+    It 'clips an overlong detail before handing it to either channel' {
+        $longDetail = 'x' * 300
+        Send-LoopFailureNotification -Loop 'dispatch' -Detail $longDetail
+        Should -Invoke Send-WindowsToast -Times 1 -ParameterFilter { $Message.Length -le 145 }
+    }
+}
