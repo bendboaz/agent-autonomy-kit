@@ -26,6 +26,11 @@ if ($toolName -in @("Bash", "PowerShell", "CMD")) {
     if (-not $filePath) { $filePath = $json.tool_input.path }
 }
 
+# The real path/command, captured before any glob fallback below - the .claude
+# exemption must only ever be decided from this, never from a glob pattern (a
+# glob like "x/.claude/*.credentials.json" is not itself a location under .claude).
+$exemptCandidate = $filePath
+
 # Grep can select target files via its glob filter even when its path is a
 # directory (or omitted) - capture the glob for a dedicated check below.
 $globPattern = ""
@@ -37,8 +42,11 @@ if ($toolName -eq "Grep") {
 if (-not $filePath) { exit 0 }
 
 # .credentials.json (the OAuth token store) is always blocked - even under
-# .claude, which is otherwise exempt below for config self-management.
-if ((($filePath -replace '\\', '/').ToLower()) -match '(^|/|\s)\.credentials\.json') {
+# .claude, which is otherwise exempt below for config self-management. Also
+# match a Grep glob directly, since a glob has no reliable "start of path"
+# anchor for the regex below.
+if ((($filePath -replace '\\', '/').ToLower()) -match '(^|/|\s)\.credentials\.json' -or
+    ($globPattern -and $globPattern.ToLower().Contains('.credentials.json'))) {
     @{
         hookSpecificOutput = @{
             hookEventName            = "PreToolUse"
@@ -49,8 +57,9 @@ if ((($filePath -replace '\\', '/').ToLower()) -match '(^|/|\s)\.credentials\.js
     exit 0
 }
 
-# Exempt the .claude config directory so Claude can manage hooks/settings
-if ($filePath -replace '\\', '/' -match '/\.claude/') { exit 0 }
+# Exempt the .claude config directory so Claude can manage hooks/settings.
+# Decided from the real path/command only, never the glob fallback above.
+if ($exemptCandidate -and ($exemptCandidate -replace '\\', '/' -match '/\.claude/')) { exit 0 }
 
 $fileName = Split-Path $filePath -Leaf -ErrorAction SilentlyContinue
 if (-not $fileName) { $fileName = $filePath }
@@ -161,7 +170,7 @@ if ($toolName -in @("Bash", "PowerShell", "CMD")) {
         }
     }
 
-    # 4. Grep glob filter (e.g. glob "*.env*" or "*.pem" over a directory path)
+        # 4. Grep glob filter (e.g. glob "*.env*" or "*.pem" over a directory path)
     if (-not $isBlocked -and $globPattern) {
         $g = $globPattern.ToLower()
         foreach ($name in $blockedExactNames) {
@@ -176,6 +185,16 @@ if ($toolName -in @("Bash", "PowerShell", "CMD")) {
                 if ($g -like "*$e*") {
                     $isBlocked = $true
                     $matchedReason = "Grep glob targets '$e' files"
+                    break
+                }
+            }
+        }
+        if (-not $isBlocked) {
+            foreach ($pattern in $blockedPatterns) {
+                $bare = $pattern.Trim('*')
+                if ($bare -and $g -like "*$bare*") {
+                    $isBlocked = $true
+                    $matchedReason = "Grep glob targets pattern '$pattern'"
                     break
                 }
             }
