@@ -382,7 +382,7 @@ Describe 'Send-ClaudePhonePush' {
         Mock Get-Command { $null } -ParameterFilter { $Name -eq 'claude' }
         Mock Start-Job {}
         { Send-ClaudePhonePush -Message 'unit test message' } | Should -Not -Throw
-        Should -Invoke Get-Command -Times 1 -ParameterFilter { $Name -eq 'claude' }
+        Should -Invoke Get-Command -Times 1 -Exactly -ParameterFilter { $Name -eq 'claude' }
         Should -Invoke Start-Job -Times 0
     }
 }
@@ -397,10 +397,10 @@ Describe 'Send-LoopFailureNotification' {
         # $RepoSlug itself - interpolating the same variable into its own filter would pass
         # trivially even if $RepoSlug were empty (`*$RepoSlug*` becomes `**`, matching anything).
         Send-LoopFailureNotification -Loop 'triage' -Detail 'Not logged in - Please run /login'
-        Should -Invoke Send-WindowsToast -Times 1 -ParameterFilter {
+        Should -Invoke Send-WindowsToast -Times 1 -Exactly -ParameterFilter {
             $Title -like '*triage*' -and $Title -like '*bendboaz/dnd-session-assistant*' -and $Message -like '*Not logged in*'
         }
-        Should -Invoke Send-ClaudePhonePush -Times 1 -ParameterFilter {
+        Should -Invoke Send-ClaudePhonePush -Times 1 -Exactly -ParameterFilter {
             $Message -like '*triage*' -and $Message -like '*Not logged in*'
         }
     }
@@ -409,13 +409,13 @@ Describe 'Send-LoopFailureNotification' {
         Send-LoopFailureNotification -Loop 'dispatch' -Detail $longDetail
         # 140 chars + '...' (3) = 143 exactly - a tight bound so a regression that
         # widens the clip (e.g. to 144) would actually fail this assertion.
-        Should -Invoke Send-WindowsToast -Times 1 -ParameterFilter { $Message.Length -le 143 }
+        Should -Invoke Send-WindowsToast -Times 1 -Exactly -ParameterFilter { $Message.Length -le 143 }
     }
     It 'clips the combined phone-push message separately, since title + detail can exceed the toast clip alone' {
         $longDetail = 'x' * 300
         Send-LoopFailureNotification -Loop 'dispatch' -Detail $longDetail
         # PushNotification's own contract is ~200 chars; title + separator + the
         # 143-char detail clip can exceed that, so this must be clipped tighter still.
-        Should -Invoke Send-ClaudePhonePush -Times 1 -ParameterFilter { $Message.Length -le 190 }
+        Should -Invoke Send-ClaudePhonePush -Times 1 -Exactly -ParameterFilter { $Message.Length -le 190 }
     }
 }
