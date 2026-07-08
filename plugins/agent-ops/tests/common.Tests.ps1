@@ -387,9 +387,12 @@ Describe 'Send-LoopFailureNotification' {
         Mock Send-ClaudePhonePush {}
     }
     It 'fires both channels with a loop- and repo-scoped title' {
+        # Asserts against the fixture's known repoSlug (bendboaz/dnd-session-assistant), not
+        # $RepoSlug itself - interpolating the same variable into its own filter would pass
+        # trivially even if $RepoSlug were empty (`*$RepoSlug*` becomes `**`, matching anything).
         Send-LoopFailureNotification -Loop 'triage' -Detail 'Not logged in - Please run /login'
         Should -Invoke Send-WindowsToast -Times 1 -ParameterFilter {
-            $Title -like '*triage*' -and $Title -like "*$RepoSlug*" -and $Message -like '*Not logged in*'
+            $Title -like '*triage*' -and $Title -like '*bendboaz/dnd-session-assistant*' -and $Message -like '*Not logged in*'
         }
         Should -Invoke Send-ClaudePhonePush -Times 1 -ParameterFilter {
             $Message -like '*triage*' -and $Message -like '*Not logged in*'

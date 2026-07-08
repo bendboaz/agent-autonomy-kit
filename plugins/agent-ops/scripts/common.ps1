@@ -540,13 +540,22 @@ function Send-ClaudePhonePush {
     exact failure mode where claude can't start a session at all (e.g. a stale
     CLI login), which is why Send-WindowsToast is the guaranteed channel.
     Bounded by a timeout so a hung claude invocation can't block the loop.
+
+    $Message is failure text pulled from a prior claude run's own stdout/stderr,
+    so it is untrusted input to this new session's prompt. --tools PushNotification
+    caps the blast radius to "at worst, sends a weird notification" - the session
+    has no other tool available regardless of what the prompt talks it into. The
+    job's environment is scrubbed of App/GH credentials for the same reason: this
+    session should never be able to act with the App's identity, injected or not.
     #>
     param([Parameter(Mandatory)][string]$Message)
     if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { return }
     try {
         $prompt = "Call the PushNotification tool with status proactive and this exact message: $Message. Do not do anything else."
         $job = Start-Job -ScriptBlock {
-            param($p) claude -p $p --permission-mode auto --remote-control 2>&1 | Out-Null
+            param($p)
+            Remove-Item Env:\GH_TOKEN, Env:\GH_APP_ID, Env:\GH_APP_INSTALLATION_ID, Env:\AGENT_LOOP -ErrorAction SilentlyContinue
+            claude -p $p --permission-mode auto --remote-control --tools PushNotification | Out-Null
         } -ArgumentList $prompt
         Wait-Job $job -Timeout 45 | Out-Null
         Stop-Job $job -ErrorAction SilentlyContinue

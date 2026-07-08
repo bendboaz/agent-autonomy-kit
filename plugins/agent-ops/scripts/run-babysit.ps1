@@ -53,6 +53,8 @@ $errTxt = if (Test-Path $errFile) { Get-Content $errFile -Raw } else { '' }
 $txt = (($out -join "`n") + "`n" + $errTxt)
 
 # --- backoff bookkeeping ---
+# Deliberately no failure notification on the usage-limit branch: backoff already
+# handles it and it self-heals, so surfacing it too would just be alert fatigue.
 if ($txt -match '(?i)(usage limit|rate limit|limit reached|overloaded|\bquota\b|\b429\b)') {
     $bo = Update-LoopBackoff 'babysit'
     Log "usage limit detected -> backoff level $($bo.level) for $($bo.minutes) min."
