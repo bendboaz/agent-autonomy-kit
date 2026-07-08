@@ -45,7 +45,7 @@ if (-not $filePath) { exit 0 }
 # .claude, which is otherwise exempt below for config self-management. Also
 # match a Grep glob directly, since a glob has no reliable "start of path"
 # anchor for the regex below.
-if ((($filePath -replace '\\', '/').ToLower()) -match '(^|/|\s)\.credentials\.json' -or
+if (($filePath -replace '\\', '/').ToLower() -match '(^|/|\s)\.credentials\.json' -or
     ($globPattern -and $globPattern.ToLower().Contains('.credentials.json'))) {
     @{
         hookSpecificOutput = @{
