@@ -513,6 +513,9 @@ function Send-WindowsToast {
     Never throws - a notification failure must not fail the calling loop.
     #>
     param([Parameter(Mandatory)][string]$Title, [Parameter(Mandatory)][string]$Message)
+    # Must stay `-eq $false`, not `-not $IsWindows`: on Windows PowerShell 5.1 - the
+    # runtime these wrappers actually run under - $IsWindows doesn't exist and reads
+    # as $null. `-not $null` is $true, which would skip the toast in production.
     if ($IsWindows -eq $false) { return }
     try {
         [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null

@@ -372,12 +372,18 @@ Describe 'Send-WindowsToast' {
 }
 
 Describe 'Send-ClaudePhonePush' {
-    It 'does not throw and no-ops when the claude command is unavailable' {
-        # CI runners (and most machines running this test) won't have claude on PATH;
-        # this only asserts the not-found guard, not the real spawn-and-notify path.
+    It 'does not throw and no-ops (never spawns a job) when the claude command is unavailable' {
+        # Also mocks Start-Job and asserts it's never called - a truthy or unmocked
+        # Get-Command would let this fall through to Start-Job, so a Times 0 failure
+        # here would mean the Get-Command mock isn't actually being honored (e.g. on
+        # a machine where claude genuinely is on PATH, this is what proves the mock
+        # is intercepting the dot-sourced function's call rather than coincidentally
+        # matching real command-not-found behavior on CI).
         Mock Get-Command { $null } -ParameterFilter { $Name -eq 'claude' }
+        Mock Start-Job {}
         { Send-ClaudePhonePush -Message 'unit test message' } | Should -Not -Throw
         Should -Invoke Get-Command -Times 1 -ParameterFilter { $Name -eq 'claude' }
+        Should -Invoke Start-Job -Times 0
     }
 }
 
