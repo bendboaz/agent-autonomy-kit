@@ -13,6 +13,8 @@
 #   4. Bash command check    -> block if command string references a sensitive path
 #
 # Files inside the .claude directory are exempt (Claude needs to manage its own config).
+# Note: exit 0 is used even when denying - the allow/deny decision lives entirely in the
+# hookSpecificOutput JSON below. A non-zero exit is treated as a hook error (fail-open), not a decision.
 
 $json = $input | ConvertFrom-Json
 
@@ -170,7 +172,7 @@ if ($toolName -in @("Bash", "PowerShell", "CMD")) {
         }
     }
 
-        # 4. Grep glob filter (e.g. glob "*.env*" or "*.pem" over a directory path)
+    # 4. Grep glob filter (e.g. glob "*.env*" or "*.pem" over a directory path)
     if (-not $isBlocked -and $globPattern) {
         $g = $globPattern.ToLower()
         foreach ($name in $blockedExactNames) {

@@ -13,12 +13,19 @@ Describe 'block-sensitive-files: Grep glob handling (Rule 4)' {
     BeforeAll {
         $hookPath = Join-Path $PSScriptRoot '../hooks/block-sensitive-files.ps1'
 
+        # 2>&1 merges stderr into $out so a crash (Write-Error, uncaught exception) shows up as
+        # extra text rather than vanishing - ConvertFrom-Json then fails loudly on the garbage
+        # instead of us silently treating a crash as an allow.
         function Invoke-Guard([string]$Json) {
-            $out = $Json | & $hookPath
+            $out = $Json | & $hookPath 2>&1
             if ([string]::IsNullOrEmpty($out)) {
                 return [PSCustomObject]@{ Deny = $false; Reason = $null }
             }
-            $parsed = $out | ConvertFrom-Json
+            try {
+                $parsed = $out | ConvertFrom-Json -ErrorAction Stop
+            } catch {
+                throw "Hook produced non-JSON output (possible crash): $out"
+            }
             [PSCustomObject]@{
                 Deny   = ($parsed.hookSpecificOutput.permissionDecision -eq 'deny')
                 Reason = $parsed.hookSpecificOutput.permissionDecisionReason
@@ -41,6 +48,8 @@ Describe 'block-sensitive-files: Grep glob handling (Rule 4)' {
     It 'denies a Grep glob matching *password* via Rule 4, with a directory path also given' {
         $r = Invoke-Guard '{"tool_name":"Grep","tool_input":{"path":"config","glob":"*password*"}}'
         $r.Deny | Should -BeTrue
+        # -Match is a REGEX match, not a glob match - the \* here escapes a literal asterisk
+        # to match the glob syntax that appears verbatim in the hook's own reason string.
         $r.Reason | Should -Match "Grep glob targets pattern '\*password\*'"
     }
 
