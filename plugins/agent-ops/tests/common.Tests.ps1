@@ -418,7 +418,8 @@ Describe 'Send-LoopFailureNotification' {
         $longDetail = 'x' * 300
         Send-LoopFailureNotification -Loop 'dispatch' -Detail $longDetail
         # PushNotification's own contract is ~200 chars; title + separator + the
-        # 143-char detail clip can exceed that, so this must be clipped tighter still.
+        # 140-char detail cap (143 once '...' is appended) can exceed that, so this
+        # must be clipped tighter still.
         Should -Invoke Send-ClaudePhonePush -Times 1 -Exactly -ParameterFilter { $Message.Length -le 190 }
     }
 }
