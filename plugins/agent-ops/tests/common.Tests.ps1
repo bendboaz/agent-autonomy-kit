@@ -360,3 +360,66 @@ Describe 'Get-IssueFiles' {
         $files | Should -BeNullOrEmpty
     }
 }
+
+# ---------------------------------------------------------------------------
+# Failure notifications
+# ---------------------------------------------------------------------------
+
+Describe 'Send-WindowsToast' {
+    It 'does not throw on any platform (no-ops when not on Windows)' {
+        { Send-WindowsToast -Title 'agent-ops: test' -Message 'unit test message' } | Should -Not -Throw
+    }
+}
+
+Describe 'Send-ClaudePhonePush' {
+    It 'does not throw and no-ops (never spawns a job) when the claude command is unavailable' {
+        # Also mocks Start-Job and asserts it's never called - a truthy or unmocked
+        # Get-Command would let this fall through to Start-Job, so a Times 0 failure
+        # here would mean the Get-Command mock isn't actually being honored (e.g. on
+        # a machine where claude genuinely is on PATH, this is what proves the mock
+        # is intercepting the dot-sourced function's call rather than coincidentally
+        # matching real command-not-found behavior on CI).
+        Mock Get-Command { $null } -ParameterFilter { $Name -eq 'claude' }
+        Mock Start-Job {}
+        { Send-ClaudePhonePush -Message 'unit test message' } | Should -Not -Throw
+        Should -Invoke Get-Command -Times 1 -Exactly -ParameterFilter { $Name -eq 'claude' }
+        Should -Invoke Start-Job -Times 0 -Exactly
+    }
+}
+
+Describe 'Send-LoopFailureNotification' {
+    BeforeEach {
+        Mock Send-WindowsToast {}
+        Mock Send-ClaudePhonePush {}
+    }
+    It 'fires both channels with a loop- and repo-scoped title' {
+        # Asserts against the fixture's known repoSlug (bendboaz/dnd-session-assistant), not
+        # $RepoSlug itself - interpolating the same variable into its own filter would pass
+        # trivially even if $RepoSlug were empty (`*$RepoSlug*` becomes `**`, matching anything).
+        Send-LoopFailureNotification -Loop 'triage' -Detail 'Not logged in - Please run /login'
+        Should -Invoke Send-WindowsToast -Times 1 -Exactly -ParameterFilter {
+            $Title -like '*triage*' -and $Title -like '*bendboaz/dnd-session-assistant*' -and $Message -like '*Not logged in*'
+        }
+        Should -Invoke Send-ClaudePhonePush -Times 1 -Exactly -ParameterFilter {
+            $Message -like '*triage*' -and $Message -like '*Not logged in*'
+        }
+    }
+    It 'clips an overlong detail before handing it to either channel' {
+        $longDetail = 'x' * 300
+        Send-LoopFailureNotification -Loop 'dispatch' -Detail $longDetail
+        # 140 chars + '...' (3) = 143 exactly - a tight bound so a regression that
+        # widens the clip (e.g. to 144) would actually fail this assertion.
+        Should -Invoke Send-WindowsToast -Times 1 -Exactly -ParameterFilter { $Message.Length -le 143 }
+        # A long detail must still reach the phone-push channel, not just the toast -
+        # the exact clip length for that channel is covered separately below.
+        Should -Invoke Send-ClaudePhonePush -Times 1 -Exactly
+    }
+    It 'clips the combined phone-push message separately, since title + detail can exceed the toast clip alone' {
+        $longDetail = 'x' * 300
+        Send-LoopFailureNotification -Loop 'dispatch' -Detail $longDetail
+        # PushNotification's own contract is ~200 chars; title + separator + the
+        # 140-char detail cap (143 once '...' is appended) can exceed that, so this
+        # must be clipped tighter still.
+        Should -Invoke Send-ClaudePhonePush -Times 1 -Exactly -ParameterFilter { $Message.Length -le 190 }
+    }
+}
