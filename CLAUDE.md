@@ -103,8 +103,9 @@ claude plugin validate ./plugins/agent-ops --strict
 
 ```
 .claude-plugin/marketplace.json          # marketplace catalog
+CHANGELOG.md                              # semver history for the plugin (see docs/ONBOARDING.md)
 plugins/agent-ops/                        # the plugin
-  .claude-plugin/plugin.json              # manifest (name required; version omitted → SHA-versioned)
+  .claude-plugin/plugin.json              # manifest (name required; version = semver, see CHANGELOG.md)
   commands/ skills/ hooks/                # auto-discovered Claude Code components
   scripts/                                # engine: common.ps1, agent-config.ps1(loader), agent_token.py,
                                           #   cleanup.ps1, run-*.ps1, install-tasks.ps1, ai_review.py

@@ -2,6 +2,69 @@
 
 How to put a repo under agent-ops. Windows / PowerShell.
 
+## Versioning, pinning, and upgrading
+
+The plugin is versioned via `"version"` in `plugins/agent-ops/.claude-plugin/plugin.json` (currently
+`1.0.0`), following semver:
+
+- **patch** (`1.0.x`) — bugfixes, and non-breaking additions to the `.agent-ops/config.json` schema
+  (a consuming repo's existing config keeps working; a new optional field showed up).
+- **minor** (`1.x.0`) — new features (new skill, new loop capability, new optional config knob) that
+  don't break an existing consumer.
+- **major** (`x.0.0`) — breaking changes (a required config field changes shape/meaning, a script's CLI
+  contract changes, a loop's authorization behavior changes).
+
+### Why there's no separate version in `marketplace.json`
+
+The marketplace catalog (`.claude-plugin/marketplace.json`) lists the plugin via a **relative path**
+source (`"./plugins/agent-ops"`), not a `github`/`url` source — the plugin lives in this same repo.
+Claude Code's version-resolution order is: `plugin.json`'s `version` field first, then the marketplace
+entry's `version`, then (for git-hosted relative-path sources) the marketplace repo's own commit SHA.
+Because `plugin.json` already declares a version, it is always authoritative — Claude Code silently
+ignores a `version` set on the marketplace entry, so setting one there would just be a footgun (a stale
+second copy nobody notices drifting). We deliberately leave the marketplace entry without a `version`
+field and treat `plugin.json`'s field as the single source of truth. `.claude-plugin/marketplace.json`
+itself keeps no version pin and continues to track whatever commit the marketplace was added/updated
+at (normally `main`'s tip) — see below for how a consumer pins that instead.
+
+### Pinning a consuming repo to a specific plugin version
+
+Adding the marketplace with `claude plugin marketplace add bendboaz/agent-autonomy-kit` (or the `/plugin
+marketplace add` slash command) tracks the repo's **default branch** (`main`) and follows it on every
+`/plugin marketplace update` / background auto-update — you get whatever `plugin.json` version is at
+`main`'s tip at update time.
+
+To **pin** to a specific released version instead, register the marketplace via `extraKnownMarketplaces`
+in `.claude/settings.json` (project or user scope) with an explicit `ref` (a git tag) or `sha`:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "boaz-agent-ops": {
+      "source": {
+        "source": "github",
+        "repo": "bendboaz/agent-autonomy-kit",
+        "ref": "v1.0.0"
+      }
+    }
+  }
+}
+```
+
+This clones the marketplace repo (and therefore the relative-path `agent-ops` plugin inside it) at that
+tag, so `plugin.json`'s `version` field there is what gets installed, and it won't move until you bump
+`ref` yourself. Release tags (`v<version>`, e.g. `v1.0.0`) are cut manually today at merge time — see
+`CHANGELOG.md` at the repo root for what's shipped at each version. Automating tag creation on release is
+tracked separately (a sibling issue that touches `.github/workflows/**`, out of scope here).
+
+### Upgrading
+
+1. Check `CHANGELOG.md` for what changed between your pinned version and the target version — a **major**
+   bump means re-reading `.agent-ops/config.json` against the new template before upgrading.
+2. Bump the `ref`/`sha` in `extraKnownMarketplaces` (if pinned) or run `/plugin marketplace update`
+   (if tracking `main`), then `claude plugin update agent-ops@boaz-agent-ops`.
+3. Re-run the **Verify** steps below to confirm the loops still behave as expected.
+
 ## Preconditions (hard)
 
 1. **The repo is PUBLIC with branch protection on `main`** (PR + ≥1 approval, no self-approve, required

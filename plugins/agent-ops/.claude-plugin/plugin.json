@@ -2,6 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "agent-ops",
   "description": "Repo-agnostic autonomous GitHub agent-ops: dispatch/babysit/triage loops, an orchestrator, and a conversation-aware AI reviewer, acting under a non-admin GitHub App. Driven by a small per-repo .agent-ops/ config. Windows/PowerShell.",
+  "version": "1.0.0",
   "author": {
     "name": "Boaz",
     "url": "https://github.com/bendboaz"
