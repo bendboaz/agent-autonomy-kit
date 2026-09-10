@@ -75,6 +75,33 @@ pwsh the agent-ops plugin's scripts/cleanup.ps1        # or: -DryRun to preview
 
 ---
 
+## 1c. Dead-agent recovery
+
+Before selecting new work, scan for interrupted subagent sessions from prior dispatch runs and
+recover their GitHub and filesystem state. Safe + idempotent — it only touches issues/worktrees that
+have a stale lock file with no live session behind them.
+
+```powershell
+& "the agent-ops plugin's scripts/dispatch-recovery.ps1"
+```
+
+See [`scripts/dispatch-recovery.ps1`](../scripts/dispatch-recovery.ps1) and `common.ps1`'s
+`Invoke-DispatchRecovery` for the detection and recovery logic. Summary: a lock is treated as dead
+unless *both* (a) its session's transcript was modified in the last 15 minutes (`Test-SessionActive`,
+keyed off the machine-local `transcriptDir` config setting) **and** (b) the lock itself is under 2
+hours old (`Test-LockStillAlive` — a hard TTL that fires recovery even when (a) looks alive, covering
+the case where the session ID recorded at claim time was wrong). For a dead lock: if an open PR
+already exists for the branch, the lock is just stale — remove it. Otherwise, if the branch has
+commits, push it and open a draft PR with `needs-attention` on both the PR and the issue; if it has no
+commits, silently clear `in-progress` so the issue can be re-dispatched. Either way, the worktree and
+the lock file are removed.
+
+If `scripts/dispatch-recovery.ps1` isn't present in an older plugin install, note it and continue —
+recovery degrades gracefully; a stale `in-progress` label or orphaned worktree just waits for the next
+run with an updated plugin.
+
+---
+
 ## 2. Select work
 
 ### 2.1 Fetch open issues and filter to dispatchable
@@ -256,6 +283,14 @@ if (-not $?) {
     & $gh issue edit $n --repo $repo --remove-label "in-progress"
     continue
 }
+
+# Write a lock file so a later dead-agent recovery scan (Sec 1c) can tell this issue is
+# claimed and, if this session dies mid-build, salvage or unclaim it on the next run.
+# $sessionId here is the *dispatcher's* own session (the subagent isn't spawned until 5.2,
+# and the dispatcher blocks on it) -- so during recovery Test-SessionActive tracks whether
+# this dispatcher run is still alive, which is the signal that the build is still in progress.
+$sessionId = Get-CurrentSessionId
+Set-AgentLock -IssueNumber $n -SessionId $sessionId -WorktreePath $worktreePath -Branch $branch
 ```
 
 ### 5.2 Spawn an implementing subagent
@@ -380,10 +415,11 @@ opening).
     --remove-label "in-progress"
 ```
 
-### 7.5 Clean up the worktree
+### 7.5 Clean up the worktree and release the lock
 
 ```powershell
 git -C $repoRoot worktree remove $worktreePath --force
+Remove-AgentLock -IssueNumber $n
 ```
 
 **Hard rules (per OPERATIONS.md §5):** never merge, never approve, never force-past a failing
@@ -454,12 +490,14 @@ Escalation format per OPERATIONS.md §5:
 [Dispatcher] Issue #N blocked — <one-line reason>. <URL>
 ```
 
-### 8.4 Clear `in-progress` and move on
+### 8.4 Clear `in-progress`, release the lock, and move on
 
 ```powershell
 & $gh issue edit $n `
     --repo $repo `
     --remove-label "in-progress"
+
+Remove-AgentLock -IssueNumber $n
 ```
 
 Clean up the worktree and continue to the next issue in the ordered list.
@@ -501,16 +539,19 @@ Write-Host "No writes made. Re-run without --dry-run to dispatch."
 |---|---|
 | Mint token | `$env:GH_TOKEN = (python the agent-ops plugin's scripts/agent_token.py)` |
 | Verify identity | `& $GH auth status` |
+| Recovery scan | `& scripts/dispatch-recovery.ps1` (or `Invoke-DispatchRecovery`) |
 | Fetch issues | `gh issue list --repo ... --label ready --json ... \| ConvertFrom-Json` |
 | Fetch open PRs | `gh pr list --repo ... --state open --json headRefName,body \| ConvertFrom-Json` |
 | Add label | `gh issue edit N --repo ... --add-label "in-progress"` |
 | Remove label | `gh issue edit N --repo ... --remove-label "in-progress"` |
 | Create worktree | `git worktree add <path> -b claude/agent/issue-N origin/main` |
+| Write lock | `Set-AgentLock -IssueNumber N -SessionId $id -WorktreePath <path> -Branch <branch>` |
 | Push branch | `git push origin claude/agent/issue-N` |
 | Open PR | `gh pr create --head claude/agent/issue-N --base main --body-file <path> --reviewer <owner>` |
 | Open draft PR | `gh pr create --draft ...` |
 | Post issue comment | `gh issue comment N --repo ... --body-file <path>` |
 | Remove worktree | `git worktree remove <path> --force` |
+| Release lock | `Remove-AgentLock -IssueNumber N` |
 
 All `gh` commands use `$GH` explicitly (not relying on PATH).
 Never use `--jq` with `\(...)` interpolation or here-strings for bodies — see OPERATIONS.md §8.

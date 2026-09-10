@@ -423,3 +423,273 @@ Describe 'Send-LoopFailureNotification' {
         Should -Invoke Send-ClaudePhonePush -Times 1 -Exactly -ParameterFilter { $Message.Length -le 190 }
     }
 }
+
+# ---------------------------------------------------------------------------
+# Lock files: Set-AgentLock / Get-AgentLock / Remove-AgentLock / Get-AgentLockFiles
+# (extended schema: worktreePath + branch, added for dead-agent recovery)
+# ---------------------------------------------------------------------------
+
+Describe 'Set-AgentLock / Get-AgentLock / Remove-AgentLock' {
+    AfterEach {
+        Remove-AgentLock -Loop 'pester-locktest' -IssueNumber 999
+    }
+    It 'round-trips issueNumber, sessionId, worktreePath, and branch through the lock file' {
+        Set-AgentLock -Loop 'pester-locktest' -IssueNumber 999 -SessionId 'sess-1' `
+            -WorktreePath 'D:\wt\issue-999' -Branch 'claude/agent/issue-999'
+
+        $lf = Get-AgentLockFiles 'pester-locktest' | Where-Object { $_.Name -eq 'pester-locktest-lock-999.json' }
+        $lf | Should -Not -BeNullOrEmpty
+
+        $lock = Get-AgentLock $lf.FullName
+        $lock.issueNumber  | Should -Be 999
+        $lock.sessionId    | Should -Be 'sess-1'
+        $lock.worktreePath | Should -Be 'D:\wt\issue-999'
+        $lock.branch       | Should -Be 'claude/agent/issue-999'
+        $lock.ageMins      | Should -BeLessOrEqual 1
+    }
+    It 'Get-AgentLock returns $null for an unreadable/corrupt lock file' {
+        $path = Join-Path $StateDir 'pester-locktest-lock-corrupt.json'
+        Set-Content $path 'not valid json {{{'
+        try {
+            Get-AgentLock $path | Should -BeNullOrEmpty
+        } finally {
+            Remove-Item $path -ErrorAction SilentlyContinue
+        }
+    }
+    It 'Remove-AgentLock deletes the lock file' {
+        Set-AgentLock -Loop 'pester-locktest' -IssueNumber 999 -SessionId 'sess-1' `
+            -WorktreePath 'D:\wt\issue-999' -Branch 'claude/agent/issue-999'
+        Remove-AgentLock -Loop 'pester-locktest' -IssueNumber 999
+        (Get-AgentLockFiles 'pester-locktest' | Where-Object { $_.Name -eq 'pester-locktest-lock-999.json' }) |
+            Should -BeNullOrEmpty
+    }
+    It 'Remove-AgentLock on a non-existent lock is a silent no-op' {
+        { Remove-AgentLock -Loop 'pester-locktest' -IssueNumber 12345 } | Should -Not -Throw
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Test-LockStillAlive (pure)
+# ---------------------------------------------------------------------------
+
+Describe 'Test-LockStillAlive' {
+    It 'alive + fresh lock -> still alive' {
+        Test-LockStillAlive -Alive $true -AgeMinutes 10 | Should -Be $true
+    }
+    It 'alive + lock at exactly 2h -> hard TTL overrides liveness' {
+        Test-LockStillAlive -Alive $true -AgeMinutes 120 | Should -Be $false
+    }
+    It 'alive + lock older than 2h -> hard TTL overrides liveness' {
+        Test-LockStillAlive -Alive $true -AgeMinutes 150 | Should -Be $false
+    }
+    It 'dead session + fresh lock -> not alive' {
+        Test-LockStillAlive -Alive $false -AgeMinutes 5 | Should -Be $false
+    }
+    It 'dead session + old lock -> not alive' {
+        Test-LockStillAlive -Alive $false -AgeMinutes 200 | Should -Be $false
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Get-LockRecoveryAction (pure)
+# ---------------------------------------------------------------------------
+
+Describe 'Get-LockRecoveryAction' {
+    It 'an existing open PR wins even when the branch has commits (clear lock only)' {
+        Get-LockRecoveryAction -HasExistingPR $true -HasCommits $true | Should -Be 'clear-lock-only'
+    }
+    It 'an existing open PR wins even when the branch has no commits (clear lock only)' {
+        Get-LockRecoveryAction -HasExistingPR $true -HasCommits $false | Should -Be 'clear-lock-only'
+    }
+    It 'no existing PR + commits -> salvage' {
+        Get-LockRecoveryAction -HasExistingPR $false -HasCommits $true | Should -Be 'salvage'
+    }
+    It 'no existing PR + no commits -> unclaim' {
+        Get-LockRecoveryAction -HasExistingPR $false -HasCommits $false | Should -Be 'unclaim'
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Test-SessionActive / Get-CurrentSessionId
+# (filesystem-based, like the Backoff functions tests above -- real files under a
+# temp TranscriptDir, script-scope $TranscriptDir saved/restored per test)
+# ---------------------------------------------------------------------------
+
+Describe 'Test-SessionActive' {
+    BeforeAll {
+        $script:sessionDir = Join-Path $StateDir 'pester-transcripts'
+        New-Item -ItemType Directory -Force -Path $sessionDir | Out-Null
+    }
+    AfterAll {
+        Remove-Item $sessionDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    It 'returns false when SessionId is empty' {
+        Test-SessionActive '' | Should -Be $false
+    }
+    It 'returns false when TranscriptDir is not configured' {
+        $save = $TranscriptDir
+        $TranscriptDir = $null
+        try { Test-SessionActive 'some-session' | Should -Be $false }
+        finally { $TranscriptDir = $save }
+    }
+    It 'returns false when the transcript file does not exist' {
+        $save = $TranscriptDir
+        $TranscriptDir = $sessionDir
+        try { Test-SessionActive 'missing-session' | Should -Be $false }
+        finally { $TranscriptDir = $save }
+    }
+    It 'returns true when the transcript was modified within the last 15 minutes' {
+        $save = $TranscriptDir
+        $TranscriptDir = $sessionDir
+        $f = Join-Path $sessionDir 'fresh-session.jsonl'
+        Set-Content $f 'x'
+        (Get-Item $f).LastWriteTime = Get-Date
+        try { Test-SessionActive 'fresh-session' | Should -Be $true }
+        finally { $TranscriptDir = $save; Remove-Item $f -ErrorAction SilentlyContinue }
+    }
+    It 'returns false when the transcript is older than 15 minutes' {
+        $save = $TranscriptDir
+        $TranscriptDir = $sessionDir
+        $f = Join-Path $sessionDir 'stale-session.jsonl'
+        Set-Content $f 'x'
+        (Get-Item $f).LastWriteTime = (Get-Date).AddMinutes(-30)
+        try { Test-SessionActive 'stale-session' | Should -Be $false }
+        finally { $TranscriptDir = $save; Remove-Item $f -ErrorAction SilentlyContinue }
+    }
+}
+
+Describe 'Get-CurrentSessionId' {
+    BeforeAll {
+        $script:curSessDir = Join-Path $StateDir 'pester-cursession'
+        New-Item -ItemType Directory -Force -Path $curSessDir | Out-Null
+    }
+    AfterAll {
+        Remove-Item $curSessDir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    It 'returns $null when TranscriptDir is not configured' {
+        $save = $TranscriptDir
+        $TranscriptDir = $null
+        try { Get-CurrentSessionId | Should -BeNullOrEmpty }
+        finally { $TranscriptDir = $save }
+    }
+    It 'returns $null when the directory has no transcripts' {
+        $save = $TranscriptDir
+        $TranscriptDir = $curSessDir
+        try { Get-CurrentSessionId | Should -BeNullOrEmpty }
+        finally { $TranscriptDir = $save }
+    }
+    It 'returns the filename stem of the most recently modified transcript' {
+        $save = $TranscriptDir
+        $TranscriptDir = $curSessDir
+        $older = Join-Path $curSessDir 'older-session.jsonl'
+        $newer = Join-Path $curSessDir 'newer-session.jsonl'
+        Set-Content $older 'x'; (Get-Item $older).LastWriteTime = (Get-Date).AddMinutes(-10)
+        Set-Content $newer 'x'; (Get-Item $newer).LastWriteTime = Get-Date
+        try { Get-CurrentSessionId | Should -Be 'newer-session' }
+        finally {
+            $TranscriptDir = $save
+            Remove-Item $older, $newer -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+# ---------------------------------------------------------------------------
+# Invoke-DispatchRecovery
+# (the salvage branch's full gh/git chain -- push + pr create + label + worktree
+# remove -- is left to manual verification, see the PR description; the switch
+# dispatch itself and the two non-salvage actions are covered here with a mocked
+# gh. The pure Get-LockRecoveryAction / Test-LockStillAlive tests above cover the
+# classifier logic feeding the switch.)
+# ---------------------------------------------------------------------------
+
+Describe 'Invoke-DispatchRecovery' {
+    It 'is a no-op (no gh/git calls, no throw) when there are no lock files' {
+        { Invoke-DispatchRecovery -LockFiles @() } | Should -Not -Throw
+    }
+    It 'removes a corrupt lock file without calling gh/git' {
+        $path = Join-Path $StateDir 'pester-recovery-corrupt.json'
+        Set-Content $path 'not valid json {{{'
+        $lf = Get-Item $path
+        try {
+            { Invoke-DispatchRecovery -LockFiles @($lf) } | Should -Not -Throw
+            Test-Path $path | Should -Be $false
+        } finally {
+            Remove-Item $path -ErrorAction SilentlyContinue
+        }
+    }
+    It 'leaves an alive, fresh lock in place and never reaches a gh/git call' {
+        $save = $TranscriptDir
+        $sessDir = Join-Path $StateDir 'pester-recovery-transcripts'
+        New-Item -ItemType Directory -Force -Path $sessDir | Out-Null
+        $TranscriptDir = $sessDir
+        $transcript = Join-Path $sessDir 'alive-session.jsonl'
+        Set-Content $transcript 'x'
+        (Get-Item $transcript).LastWriteTime = Get-Date
+
+        Set-AgentLock -Loop 'pester-recovery' -IssueNumber 4242 -SessionId 'alive-session' `
+            -WorktreePath 'D:\nonexistent\issue-4242' -Branch 'claude/agent/issue-4242'
+        $lf = Get-AgentLockFiles 'pester-recovery' | Where-Object { $_.Name -eq 'pester-recovery-lock-4242.json' }
+
+        try {
+            { Invoke-DispatchRecovery -LockFiles @($lf) } | Should -Not -Throw
+            # Still alive -> the lock must survive the scan (recovery never got past the
+            # skip-alive short-circuit, so it never reached a gh/git call).
+            Test-Path $lf.FullName | Should -Be $true
+        } finally {
+            $TranscriptDir = $save
+            Remove-AgentLock -Loop 'pester-recovery' -IssueNumber 4242
+            Remove-Item $sessDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # The next two exercise the switch dispatch for a dead lock (no transcript -> not
+    # alive -> Test-LockStillAlive $false). $GH is pointed at the command name 'gh' so
+    # Pester's mock intercepts `& $GH ...`; the worktree path is non-existent so the
+    # git-log / worktree-remove calls are never reached (the classifier decides from
+    # the mocked `gh pr list` result alone).
+    Context 'switch dispatch for a dead lock (mocked gh)' {
+        BeforeEach {
+            $script:ghSaved = $GH
+            $GH = 'gh'
+            Mock git {}   # defensive: nothing in these paths should reach git
+            # Catch-all so any unexpected `gh` call is intercepted (not passed to the real
+            # gh) and counted -- this is what makes the `Should -Not -Invoke` assertions
+            # below meaningful. Per-path `Mock gh -ParameterFilter` overrides it.
+            Mock gh { $global:LASTEXITCODE = 0 }
+        }
+        AfterEach {
+            $GH = $ghSaved
+            Remove-AgentLock -Loop 'pester-recovery' -IssueNumber 4343
+            Remove-AgentLock -Loop 'pester-recovery' -IssueNumber 4344
+        }
+
+        It "clear-lock-only: an existing open PR just removes the stale lock" {
+            Mock gh { $global:LASTEXITCODE = 0; '[{"number":77}]' } -ParameterFilter { $args -contains 'list' }
+            Set-AgentLock -Loop 'pester-recovery' -IssueNumber 4343 -SessionId 'dead-sess' `
+                -WorktreePath 'D:\nonexistent\issue-4343' -Branch 'claude/agent/issue-4343'
+            $lf = Get-AgentLockFiles 'pester-recovery' | Where-Object { $_.Name -eq 'pester-recovery-lock-4343.json' }
+
+            { Invoke-DispatchRecovery -LockFiles @($lf) } | Should -Not -Throw
+
+            Test-Path $lf.FullName | Should -Be $false
+            Should -Invoke gh -ParameterFilter { $args -contains 'list' }
+            Should -Not -Invoke gh -ParameterFilter { $args -contains 'edit' }
+        }
+
+        It "unclaim: no PR + no commits removes in-progress and the lock" {
+            $Labels.InProgress | Should -Not -BeNullOrEmpty   # precondition: the -ParameterFilter below is only meaningful with a real label
+            Mock gh { $global:LASTEXITCODE = 0; '[]' } -ParameterFilter { $args -contains 'list' }
+            Mock gh { $global:LASTEXITCODE = 0 } -ParameterFilter { $args -contains 'edit' }
+            Set-AgentLock -Loop 'pester-recovery' -IssueNumber 4344 -SessionId 'dead-sess' `
+                -WorktreePath 'D:\nonexistent\issue-4344' -Branch 'claude/agent/issue-4344'
+            $lf = Get-AgentLockFiles 'pester-recovery' | Where-Object { $_.Name -eq 'pester-recovery-lock-4344.json' }
+
+            { Invoke-DispatchRecovery -LockFiles @($lf) } | Should -Not -Throw
+
+            Test-Path $lf.FullName | Should -Be $false
+            Should -Invoke gh -ParameterFilter {
+                ($args -contains 'edit') -and ($args -contains '--remove-label') -and ($args -contains $Labels.InProgress)
+            }
+        }
+    }
+}
