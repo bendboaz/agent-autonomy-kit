@@ -28,7 +28,8 @@ Copy the templates from the plugin (`plugins/agent-ops/templates/`) and fill the
 <repo>/.agent-ops/
 ├─ config.json          # from config.example.json — repoSlug, appId, installationId, appBotLogin,
 │                       #   branchPrefix, defaultCap, labels{}, roleHeaders{}, verify{}, agentOpsPath
-├─ config.local.json    # from config.local.example.json — GITIGNORED machine paths (worktreeBase, venvScripts, ghPath)
+├─ config.local.json    # from config.local.example.json — GITIGNORED machine paths (worktreeBase, venvScripts, ghPath,
+│                       #   transcriptDir — optional; enables the dead-agent recovery liveness check, see DISPATCH.md §1c)
 ├─ REPO-FACTS.md        # from REPO-FACTS.example.md — required checks, local verify, contract files, conventions
 └─ REVIEW-CHECKLIST.md  # from REVIEW-CHECKLIST.example.md — the project's AI-review checklist
 ```

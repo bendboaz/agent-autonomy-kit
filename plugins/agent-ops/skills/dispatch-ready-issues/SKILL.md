@@ -47,8 +47,11 @@ If neither `GH_TOKEN` nor `GH_APP_PRIVATE_KEY_PATH` is present, **stop** and ask
 ## Dead-agent recovery
 
 On every run, **before** selecting new work, run the plugin's `scripts/dispatch-recovery.ps1`
-(DISPATCH.md §1c) to salvage partial work or unclaim issues from interrupted prior sessions. If the
-script isn't present yet, note it and continue — recovery degrades gracefully.
+(DISPATCH.md §1c) to salvage partial work or unclaim issues from interrupted prior sessions. It scans
+lock files written by `Set-AgentLock` at claim time; a lock with no live session behind it (per
+`Test-SessionActive`/`Test-LockStillAlive`) either gets salvaged as a draft PR (branch has commits) or
+silently unclaimed (no commits). Degrades gracefully if `transcriptDir` isn't configured in
+`.agent-ops/config.local.json` — recovery then relies on the 2-hour hard TTL alone.
 
 ## Safe first action: dry run
 

@@ -6,7 +6,7 @@
 # paths, gitignored), validates, and sets the script-scope variables the rest
 # of common.ps1 consumes:
 #   $RepoRoot $RepoSlug $AppId $InstallationId $BranchPrefix $DefaultCap
-#   $Labels $RoleHeaders $WorktreeBase $VenvScripts $GH $StateDir $AgentOpsPath
+#   $Labels $RoleHeaders $WorktreeBase $VenvScripts $GH $StateDir $AgentOpsPath $TranscriptDir
 #
 # Repo resolution order:
 #   1. $env:AGENT_OPS_REPO  (the run-*.ps1 wrappers set this)
@@ -118,3 +118,7 @@ if ($venvRel) {
 # --- gh path: config.local override → known Windows location → PATH fallback ---
 $ghCfg = [string](Get-AgentSetting 'ghPath')
 if ($ghCfg) { $GH = $ghCfg } else { $GH = 'C:\Program Files\GitHub CLI\gh.exe'; if (-not (Test-Path $GH)) { $GH = 'gh' } }
+
+# --- transcript dir (gitignored config.local.json; optional -- dead-agent recovery falls back
+# to its 2-hour hard TTL when this isn't configured or a transcript can't be found there) ---
+$TranscriptDir = [string](Get-AgentSetting 'transcriptDir')

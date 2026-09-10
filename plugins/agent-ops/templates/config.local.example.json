@@ -1,5 +1,6 @@
 {
   "worktreeBase": "D:\\path\\to\\worktrees",
   "venvScripts": "backend\\.venv\\Scripts",
-  "ghPath": "C:\\Program Files\\GitHub CLI\\gh.exe"
+  "ghPath": "C:\\Program Files\\GitHub CLI\\gh.exe",
+  "transcriptDir": "C:\\path\\to\\.claude\\projects\\<this-repo-path-slug>"
 }
